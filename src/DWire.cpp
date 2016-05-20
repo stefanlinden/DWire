@@ -22,28 +22,53 @@ extern "C" {
 
 /**** PROTOTYPES ****/
 
-void IRQHandler( uint32_t, std::vector<uint8_t> *, uint8_t );
+void IRQHandler( uint32_t module, uint8_t *, uint8_t *, std::vector<uint8_t> *,
+        uint8_t *, uint8_t * );
 
 /**** GLOBAL VARIABLES ****/
+
+// The buffers need to be declared globally, as the interrupts are too
 #ifdef USING_EUSCI_B0
-static std::vector<uint8_t> EUSCIB0_rxBuffer;
+
+static uint8_t * EUSCIB0_txBuffer = new uint8_t[TX_BUFFER_SIZE];
+static uint8_t EUSCIB0_txBufferIndex = 0;
+static uint8_t EUSCIB0_txBufferSize;
+
+static uint8_t * EUSCIB0_rxBuffer = new uint8_t[RX_BUFFER_SIZE];
+static uint8_t EUSCIB0_rxBufferIndex = 0;
 #endif
+
 #ifdef USING_EUSCI_B1
-static std::vector<uint8_t> EUSCIB1_rxBuffer;
+
+static uint8_t * EUSCIB1_txBuffer = new uint8_t[TX_BUFFER_SIZE];
+static uint8_t EUSCIB1_txBufferIndex = 0;
+static uint8_t EUSCIB1_txBufferSize;
+
+static uint8_t * EUSCIB1_rxBuffer = new uint8_t[RX_BUFFER_SIZE];
+static uint8_t EUSCIB1_rxBufferIndex = 0;
 #endif
+
 #ifdef USING_EUSCI_B2
-static std::vector<uint8_t> EUSCIB2_rxBuffer;
+
+static uint8_t * EUSCIB2_txBuffer = new uint8_t[TX_BUFFER_SIZE];
+static uint8_t EUSCIB2_txBufferIndex = 0;
+static uint8_t EUSCIB2_txBufferSize;
+
+static uint8_t * EUSCIB2_rxBuffer = new uint8_t[RX_BUFFER_SIZE];
+static uint8_t EUSCIB2_rxBufferIndex = 0;
 #endif
+
 #ifdef USING_EUSCI_B3
-static std::vector<uint8_t> EUSCIB3_rxBuffer;
+
+static uint8_t * EUSCIB3_txBuffer = new uint8_t[TX_BUFFER_SIZE];
+static uint8_t EUSCIB3_txBufferIndex = 0;
+static uint8_t EUSCIB3_txBufferSize;
+
+static uint8_t * EUSCIB3_rxBuffer = new uint8_t[RX_BUFFER_SIZE];
+static uint8_t EUSCIB3_rxBufferIndex = 0;
 #endif
 
 static std::hash_map<uint32_t, DWire *> moduleMap;
-
-uint8_t EUSCIB0_rxBufferIndex = 0;
-uint8_t EUSCIB1_rxBufferIndex = 0;
-uint8_t EUSCIB2_rxBufferIndex = 0;
-uint8_t EUSCIB3_rxBufferIndex = 0;
 
 /**** CONSTRUCTORS ****/
 
@@ -51,17 +76,33 @@ DWire::DWire( uint32_t module ) {
 
     this->module = module;
 
-    txBufferIndex = 0;
     rxReadIndex = 0;
     rxReadLength = 0;
+    rxBuffer = new uint8_t[RX_BUFFER_SIZE];
 
     slaveAddress = 0;
 
     status = BUS_STATUS_NONE;
     busRole = BUS_ROLE_SLAVE;
 
-    void (*user_onRequest)( void );
-    void (*user_onReceive)( uint8_t, uint8_t * );
+    switch ( module ) {
+    case EUSCI_B0_BASE:
+        pTxBuffer = EUSCIB0_txBuffer;
+        pTxBufferIndex = &EUSCIB0_txBufferIndex;
+        pTxBufferSize = &EUSCIB0_txBufferSize;
+        break;
+    case EUSCI_B1_BASE:
+        //intModule = INT_EUSCIB1;
+        break;
+    case EUSCI_B2_BASE:
+        //intModule = INT_EUSCIB2;
+        break;
+    case EUSCI_B3_BASE:
+        //intModule = INT_EUSCIB3;
+        break;
+    default:
+        return;
+    }
 
     // Register this instance in the 'moduleMap'
     moduleMap[module] = this;
@@ -110,26 +151,22 @@ void DWire::beginTransmission( uint_fast8_t slaveAddress ) {
     if ( slaveAddress != this->slaveAddress )
         _setSlaveAddress(slaveAddress);
 
-    // Reset the buffer index
-    txBufferIndex = 0;
 }
 
 /**
  * Write a single byte to the tx buffer
  */
 void DWire::write( uint8_t dataByte ) {
-    txBuffer.push_back(dataByte);
-    txBufferIndex++;
+    pTxBuffer[*pTxBufferIndex] = dataByte;
+    //uint8_t * buffer = new uint8_t[pTxBuffer->size()];
+    //std::copy(pTxBuffer->begin(), pTxBuffer->end(),buffer);
+    (*pTxBufferIndex)++;
 }
 
 /**
  * End the transmission and transmit the tx buffer's contents over the bus
  */
 void DWire::endTransmission( ) {
-    int ii;
-
-    if ( txBufferIndex == 0 )
-        return;
 
     // Wait until any ongoing (incoming) transmissions are finished
     while ( MAP_I2C_isBusBusy(module) == EUSCI_B_I2C_BUS_BUSY )
@@ -138,39 +175,30 @@ void DWire::endTransmission( ) {
     status = BUS_STATUS_TX;
 
     // Send the start condition and initial byte
-    MAP_I2C_masterSendMultiByteStart(module, txBuffer.at(0));
+    (*pTxBufferSize) = *pTxBufferIndex;
+    (*pTxBufferIndex)--;
+    MAP_I2C_masterSendMultiByteStart(module, pTxBuffer[0]);
 
-    for ( ii = 1; ii <= txBufferIndex; ii++ ) {
-        MAP_I2C_masterSendMultiByteNext(module, txBuffer.at(ii));
-    }
-
-    MAP_I2C_masterSendMultiByteStop(module);
-
-    status = BUS_STATUS_RDY;
 }
 
 /**
  * Reads a single byte from the rx buffer
  */
 uint8_t DWire::read( void ) {
-    if ( rxReadIndex == 0 && rxReadLength == 0 )
-        return 0;
 
-    // Read normally up to the last byte
-    if ( rxReadIndex < rxReadLength - 1 ) {
-        rxReadIndex++;
-        return rxBuffer[rxReadIndex - 1];
-    }
+    // Wait if there is nothing to read
+    while ( rxReadIndex == 0 && rxReadLength == 0 )
+        ;
 
+    uint8_t byte = rxBuffer[rxReadIndex];
+    rxReadIndex++;
+
+    // Check whether this was the last byte. If so, reset.
     if ( rxReadIndex == rxReadLength ) {
-        // Read the last byte and then clear
-        uint8_t value = rxBuffer[rxReadIndex];
-
         rxReadIndex = 0;
         rxReadLength = 0;
-        return value;
     }
-    return 0;
+    return byte;
 }
 
 /**
@@ -193,26 +221,33 @@ void DWire::onReceive( void (*islHandle)( uint8_t ) ) {
 /**** PRIVATE METHODS ****/
 
 void DWire::_initMaster( const eUSCI_I2C_MasterConfig * i2cConfig ) {
-    /* Initializing I2C Master to SMCLK at 400kbs with no autostop */
+    MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1,
+    GPIO_PIN6 + GPIO_PIN7, GPIO_PRIMARY_MODULE_FUNCTION);
+
+    // Initializing I2C Master to SMCLK at 400kbs with no autostop
     MAP_I2C_initMaster(module, i2cConfig);
 
-    /* Specify slave address */
+    // Specify slave address
     MAP_I2C_setSlaveAddress(module, 0);
 
-    /* Set Master in receive mode */
+    // Set Master in receive mode
     MAP_I2C_setMode(module, EUSCI_B_I2C_TRANSMIT_MODE);
 
-    /* Enable I2C Module to start operations */
+    // Enable I2C Module to start operations
     MAP_I2C_enableModule(module);
 
     // Update the status
     status = BUS_STATUS_RDY;
 
-    /* Enable and clear the interrupt flag */
-    MAP_I2C_clearInterruptFlag(module, EUSCI_B_I2C_NAK_INTERRUPT);
+    // Enable and clear the interrupt flag
+    MAP_I2C_clearInterruptFlag(module,
+    EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT);
 
-    //Enable master Receive interrupt
-    MAP_I2C_enableInterrupt(module, EUSCI_B_I2C_NAK_INTERRUPT);
+    // Enable master Receive interrupt
+    MAP_I2C_enableInterrupt(module,
+    EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT);
+
+    // Register the correct module for the interrupt
     uint32_t intModule;
     switch ( module ) {
     case EUSCI_B0_BASE:
@@ -234,24 +269,24 @@ void DWire::_initMaster( const eUSCI_I2C_MasterConfig * i2cConfig ) {
 }
 
 void DWire::_initSlave( void ) {
+    MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1,
+    GPIO_PIN6 + GPIO_PIN7, GPIO_PRIMARY_MODULE_FUNCTION);
+
     MAP_I2C_initSlave(module, slaveAddress, EUSCI_B_I2C_OWN_ADDRESS_OFFSET0,
     EUSCI_B_I2C_OWN_ADDRESS_ENABLE);
 
-    /* Set in receive mode */
+    // Set in receive mode
     MAP_I2C_setMode(module, EUSCI_B_I2C_RECEIVE_MODE);
 
-    /* Enable the module */
+    // Enable the module
     MAP_I2C_enableModule(module);
 
-    // Update the status
-    status = BUS_STATUS_RDY;
-
-    /* Enable the module and enable interrupts */
-    MAP_I2C_enableModule(EUSCI_B0_BASE);
-    MAP_I2C_clearInterruptFlag(EUSCI_B0_BASE,
-            EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_STOP_INTERRUPT);
-    MAP_I2C_enableInterrupt(EUSCI_B0_BASE,
-            EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_STOP_INTERRUPT);
+    // Enable the module and enable interrupts
+    MAP_I2C_enableModule(module);
+    MAP_I2C_clearInterruptFlag(module,
+    EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_STOP_INTERRUPT);
+    MAP_I2C_enableInterrupt(module,
+    EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_STOP_INTERRUPT);
     MAP_Interrupt_enableSleepOnIsrExit( );
     MAP_Interrupt_enableInterrupt(INT_EUSCIB0);
     MAP_Interrupt_enableMaster( );
@@ -274,23 +309,36 @@ void DWire::_handleRequest( void ) {
         return;
 }
 
-void DWire::_handleReceive( uint8_t * rxBufferIndex,
-        std::vector<uint8_t> * rxBuffer ) {
+void DWire::_handleReceive( uint8_t * rxBufferIndex, uint8_t * rxBuffer ) {
+    // No need to do anything if there is no handler registered
+    if ( !user_onReceive )
+        return;
+
+    // Check whether the user application is still reading out the local buffer.
+    // This needs to be tested to make sure it doesn't give any problems.
+    if ( rxReadIndex != 0 && rxReadLength != 0 )
+        return;
+
+    // Copy the main buffer into a local buffer
     rxReadLength = *rxBufferIndex;
     rxReadIndex = 0;
 
-    this->rxBuffer = new uint8_t[rxReadLength];
-    std::copy(rxBuffer->begin(), rxBuffer->end(),this->rxBuffer);
+    for ( int i = 0; i < rxReadLength; i++ )
+        this->rxBuffer[i] = rxBuffer[i];
 
-    if( !user_onReceive )
-        return;
-    user_onReceive( rxReadLength );
+    // Reset the main buffer
+    (*rxBufferIndex) = 0;
+
+    user_onReceive(rxReadLength);
 }
 
-/**** ISR/IQR Handles ****/
+/**** ISR/IRQ Handles ****/
 
-void IRQHandler( uint32_t module, std::vector<uint8_t> * rxBuffer,
-        uint8_t * rxBufferIndex ) {
+/**
+ * The main (global) interrupt  handler
+ */
+void IRQHandler( uint32_t module, uint8_t * rxBuffer, uint8_t * rxBufferIndex,
+        uint8_t * txBuffer, uint8_t * txBufferIndex, uint8_t * txBufferSize ) {
 
     uint_fast16_t status;
 
@@ -298,10 +346,33 @@ void IRQHandler( uint32_t module, std::vector<uint8_t> * rxBuffer,
     MAP_I2C_clearInterruptFlag(module, status);
 
     /* RXIFG */
+    // Triggered when data has been received
     if ( status & EUSCI_B_I2C_RECEIVE_INTERRUPT0 ) {
 
-        rxBuffer->push_back(MAP_I2C_slaveGetData(module));
+        rxBuffer[*rxBufferIndex] = MAP_I2C_slaveGetData(module);
         (*rxBufferIndex)++;
+    }
+
+    // As master: triggered when a byte has been transmitted
+    // As slave: triggered on request (tbc) */
+    if ( status & EUSCI_B_I2C_TRANSMIT_INTERRUPT0 ) {
+
+        // If we've transmitted the last byte from the buffer, then send a stop
+        if ( !(*txBufferIndex) ) {
+            MAP_I2C_masterSendMultiByteStop(module);
+        } else {
+
+            // If we still have data left in the buffer, then transmit that
+            MAP_I2C_masterSendMultiByteNext(module,
+                    txBuffer[(*txBufferSize) - (*txBufferIndex)]);
+            (*txBufferIndex)--;
+        }
+
+    }
+
+    if ( status & EUSCI_B_I2C_NAK_INTERRUPT ) {
+        MAP_I2C_masterSendStart(module);
+        // TODO verify whether this is enough or we need to bring back the buffer by one item
     }
 
     /* STPIFG
@@ -319,8 +390,11 @@ void IRQHandler( uint32_t module, std::vector<uint8_t> * rxBuffer,
 /*
  * Handle everything on EUSCI_B0
  */
+extern "C" {
 void EUSCIB0_IRQHandler( void ) {
-    IRQHandler(EUSCI_B0_BASE, &EUSCIB0_rxBuffer, &EUSCIB0_rxBufferIndex);
+    IRQHandler(EUSCI_B0_BASE, EUSCIB0_rxBuffer, &EUSCIB0_rxBufferIndex,
+            EUSCIB0_txBuffer, &EUSCIB0_txBufferIndex, &EUSCIB0_txBufferSize);
+}
 }
 
 /* USING_EUSCI_B0 */

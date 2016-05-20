@@ -24,11 +24,8 @@
 #define BUS_ROLE_SLAVE 1
 
 // Default buffer size in bytes
-#define TX_BUFFER_SIZE 4
-#define RX_BUFFER_SIZE 4
-
-/* Standard includes */
-#include <vector>
+#define TX_BUFFER_SIZE 32
+#define RX_BUFFER_SIZE 32
 
 /* Driverlib */
 #include "driverlib.h"
@@ -38,11 +35,12 @@ class DWire {
 private:
     uint_fast32_t module;
 
-    uint_fast8_t txBufferIndex;
-    std::vector<uint8_t> txBuffer;
+    uint8_t * pTxBufferIndex;
+    uint8_t * pTxBuffer;
+    uint8_t * pTxBufferSize;
 
-    uint8_t rxReadIndex;
-    uint8_t rxReadLength;
+    volatile uint8_t rxReadIndex;
+    volatile uint8_t rxReadLength;
     uint8_t * rxBuffer;
 
     uint8_t slaveAddress;
@@ -74,7 +72,7 @@ public:
     void onRequest( void (*)( void ) );
     void onReceive( void (*)( uint8_t ) );
 
-    void _handleReceive( uint8_t *, std::vector<uint8_t> * );
+    void _handleReceive( uint8_t *, uint8_t * );
 
 };
 

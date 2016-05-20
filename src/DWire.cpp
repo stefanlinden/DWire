@@ -30,45 +30,47 @@ void IRQHandler( uint32_t module, uint8_t *, uint8_t *, std::vector<uint8_t> *,
 // The buffers need to be declared globally, as the interrupts are too
 #ifdef USING_EUSCI_B0
 
-static uint8_t * EUSCIB0_txBuffer = new uint8_t[TX_BUFFER_SIZE];
-static uint8_t EUSCIB0_txBufferIndex = 0;
-static uint8_t EUSCIB0_txBufferSize;
+uint8_t * EUSCIB0_txBuffer = new uint8_t[TX_BUFFER_SIZE];
+uint8_t EUSCIB0_txBufferIndex = 0;
+uint8_t EUSCIB0_txBufferSize;
 
-static uint8_t * EUSCIB0_rxBuffer = new uint8_t[RX_BUFFER_SIZE];
-static uint8_t EUSCIB0_rxBufferIndex = 0;
+uint8_t * EUSCIB0_rxBuffer = new uint8_t[RX_BUFFER_SIZE];
+uint8_t EUSCIB0_rxBufferIndex = 0;
 #endif
 
 #ifdef USING_EUSCI_B1
 
-static uint8_t * EUSCIB1_txBuffer = new uint8_t[TX_BUFFER_SIZE];
-static uint8_t EUSCIB1_txBufferIndex = 0;
-static uint8_t EUSCIB1_txBufferSize;
+uint8_t * EUSCIB1_txBuffer = new uint8_t[TX_BUFFER_SIZE];
+uint8_t EUSCIB1_txBufferIndex = 0;
+uint8_t EUSCIB1_txBufferSize;
 
-static uint8_t * EUSCIB1_rxBuffer = new uint8_t[RX_BUFFER_SIZE];
-static uint8_t EUSCIB1_rxBufferIndex = 0;
+uint8_t * EUSCIB1_rxBuffer = new uint8_t[RX_BUFFER_SIZE];
+uint8_t EUSCIB1_rxBufferIndex = 0;
 #endif
 
 #ifdef USING_EUSCI_B2
 
-static uint8_t * EUSCIB2_txBuffer = new uint8_t[TX_BUFFER_SIZE];
-static uint8_t EUSCIB2_txBufferIndex = 0;
-static uint8_t EUSCIB2_txBufferSize;
+uint8_t * EUSCIB2_txBuffer = new uint8_t[TX_BUFFER_SIZE];
+uint8_t EUSCIB2_txBufferIndex = 0;
+uint8_t EUSCIB2_txBufferSize;
 
-static uint8_t * EUSCIB2_rxBuffer = new uint8_t[RX_BUFFER_SIZE];
-static uint8_t EUSCIB2_rxBufferIndex = 0;
+uint8_t * EUSCIB2_rxBuffer = new uint8_t[RX_BUFFER_SIZE];
+uint8_t EUSCIB2_rxBufferIndex = 0;
 #endif
 
 #ifdef USING_EUSCI_B3
 
-static uint8_t * EUSCIB3_txBuffer = new uint8_t[TX_BUFFER_SIZE];
-static uint8_t EUSCIB3_txBufferIndex = 0;
-static uint8_t EUSCIB3_txBufferSize;
+uint8_t * EUSCIB3_txBuffer = new uint8_t[TX_BUFFER_SIZE];
+uint8_t EUSCIB3_txBufferIndex = 0;
+uint8_t EUSCIB3_txBufferSize;
 
-static uint8_t * EUSCIB3_rxBuffer = new uint8_t[RX_BUFFER_SIZE];
-static uint8_t EUSCIB3_rxBufferIndex = 0;
+uint8_t * EUSCIB3_rxBuffer = new uint8_t[RX_BUFFER_SIZE];
+uint8_t EUSCIB3_rxBufferIndex = 0;
 #endif
 
+// TODO find a way of not using a hash map
 static std::hash_map<uint32_t, DWire *> moduleMap;
+
 
 /**** CONSTRUCTORS ****/
 
@@ -76,14 +78,14 @@ DWire::DWire( uint32_t module ) {
 
     this->module = module;
 
+    // The receiver buffer and related variables
     rxReadIndex = 0;
     rxReadLength = 0;
     rxBuffer = new uint8_t[RX_BUFFER_SIZE];
 
     slaveAddress = 0;
 
-    status = BUS_STATUS_NONE;
-    busRole = BUS_ROLE_SLAVE;
+    busRole = 0;
 
     switch ( module ) {
     case EUSCI_B0_BASE:
@@ -91,15 +93,27 @@ DWire::DWire( uint32_t module ) {
         pTxBufferIndex = &EUSCIB0_txBufferIndex;
         pTxBufferSize = &EUSCIB0_txBufferSize;
         break;
-    case EUSCI_B1_BASE:
-        //intModule = INT_EUSCIB1;
+#ifdef USING_EUSCI_B1
+        case EUSCI_B1_BASE:
+        pTxBuffer = EUSCIB1_txBuffer;
+        pTxBufferIndex = &EUSCIB1_txBufferIndex;
+        pTxBufferSize = &EUSCIB1_txBufferSize;
         break;
-    case EUSCI_B2_BASE:
-        //intModule = INT_EUSCIB2;
+#endif
+#ifdef USING_EUSCI_B2
+        case EUSCI_B2_BASE:
+        pTxBuffer = EUSCIB2_txBuffer;
+        pTxBufferIndex = &EUSCIB2_txBufferIndex;
+        pTxBufferSize = &EUSCIB2_txBufferSize;
         break;
-    case EUSCI_B3_BASE:
-        //intModule = INT_EUSCIB3;
+#endif
+#ifdef USING_EUSCI_B3
+        case EUSCI_B3_BASE:
+        pTxBuffer = EUSCIB3_txBuffer;
+        pTxBufferIndex = &EUSCIB3_txBufferIndex;
+        pTxBufferSize = &EUSCIB3_txBufferSize;
         break;
+#endif
     default:
         return;
     }
@@ -113,6 +127,7 @@ DWire::~DWire( ) {
     moduleMap[module] = 0;
 }
 
+
 /**** PUBLIC METHODS ****/
 
 void DWire::begin( void ) {
@@ -120,11 +135,11 @@ void DWire::begin( void ) {
     busRole = BUS_ROLE_MASTER;
 
     const eUSCI_I2C_MasterConfig i2cConfig = {
-    EUSCI_B_I2C_CLOCKSOURCE_SMCLK,          // SMCLK Clock Source
+    EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
             48000000,                                // SMCLK = 3MHz
-            EUSCI_B_I2C_SET_DATA_RATE_400KBPS, // Desired I2C Clock of 400khz // TODO make configurable
-            0,                                      // No byte counter threshold
-            EUSCI_B_I2C_NO_AUTO_STOP                // No Autostop
+            EUSCI_B_I2C_SET_DATA_RATE_400KBPS,       // Desired I2C Clock of 400khz // TODO make configurable
+            0,                                       // No byte counter threshold
+            EUSCI_B_I2C_NO_AUTO_STOP                 // No Autostop
             };
     _initMaster(&i2cConfig);
 }
@@ -150,7 +165,6 @@ void DWire::beginTransmission( uint_fast8_t slaveAddress ) {
 
     if ( slaveAddress != this->slaveAddress )
         _setSlaveAddress(slaveAddress);
-
 }
 
 /**
@@ -158,8 +172,6 @@ void DWire::beginTransmission( uint_fast8_t slaveAddress ) {
  */
 void DWire::write( uint8_t dataByte ) {
     pTxBuffer[*pTxBufferIndex] = dataByte;
-    //uint8_t * buffer = new uint8_t[pTxBuffer->size()];
-    //std::copy(pTxBuffer->begin(), pTxBuffer->end(),buffer);
     (*pTxBufferIndex)++;
 }
 
@@ -172,11 +184,11 @@ void DWire::endTransmission( ) {
     while ( MAP_I2C_isBusBusy(module) == EUSCI_B_I2C_BUS_BUSY )
         ;
 
-    status = BUS_STATUS_TX;
-
     // Send the start condition and initial byte
     (*pTxBufferSize) = *pTxBufferIndex;
     (*pTxBufferIndex)--;
+
+    // Send the first byte, triggering the TX interrupt
     MAP_I2C_masterSendMultiByteStart(module, pTxBuffer[0]);
 
 }
@@ -210,9 +222,7 @@ void DWire::onRequest( void (*islHandle)( void ) ) {
 
 /**
  * Register the interrupt handler
- * The two arguments for the handle are:
- * 1. number of bytes received ( == RX_BUFFER_SIZE)
- * 2. the actual bytes
+ * The argument contains the number of bytes received
  */
 void DWire::onReceive( void (*islHandle)( uint8_t ) ) {
     user_onReceive = islHandle;
@@ -220,7 +230,13 @@ void DWire::onReceive( void (*islHandle)( uint8_t ) ) {
 
 /**** PRIVATE METHODS ****/
 
+/**
+ * Called to set the eUSCI module in 'master' mode
+ */
 void DWire::_initMaster( const eUSCI_I2C_MasterConfig * i2cConfig ) {
+
+    // Initialise the pins
+    // TODO make customisable, as these are only used by eUSCI B0
     MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1,
     GPIO_PIN6 + GPIO_PIN7, GPIO_PRIMARY_MODULE_FUNCTION);
 
@@ -236,18 +252,15 @@ void DWire::_initMaster( const eUSCI_I2C_MasterConfig * i2cConfig ) {
     // Enable I2C Module to start operations
     MAP_I2C_enableModule(module);
 
-    // Update the status
-    status = BUS_STATUS_RDY;
-
     // Enable and clear the interrupt flag
     MAP_I2C_clearInterruptFlag(module,
     EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT);
 
-    // Enable master Receive interrupt
+    // Enable master interrupts
     MAP_I2C_enableInterrupt(module,
     EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT);
 
-    // Register the correct module for the interrupt
+    // Register the interrupts on the correct module
     uint32_t intModule;
     switch ( module ) {
     case EUSCI_B0_BASE:
@@ -269,9 +282,11 @@ void DWire::_initMaster( const eUSCI_I2C_MasterConfig * i2cConfig ) {
 }
 
 void DWire::_initSlave( void ) {
+    // Init the pins
     MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1,
     GPIO_PIN6 + GPIO_PIN7, GPIO_PRIMARY_MODULE_FUNCTION);
 
+    // initialise driverlib
     MAP_I2C_initSlave(module, slaveAddress, EUSCI_B_I2C_OWN_ADDRESS_OFFSET0,
     EUSCI_B_I2C_OWN_ADDRESS_ENABLE);
 
@@ -309,6 +324,9 @@ void DWire::_handleRequest( void ) {
         return;
 }
 
+/**
+ * Internal process handling the rx buffers, and calling the user's interrupt handles
+ */
 void DWire::_handleReceive( uint8_t * rxBufferIndex, uint8_t * rxBuffer ) {
     // No need to do anything if there is no handler registered
     if ( !user_onReceive )

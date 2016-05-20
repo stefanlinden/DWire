@@ -2,7 +2,12 @@
  * DWire.h
  *
  *  Created on: 16 May 2016
- *      Author: stefa_000
+ *      Author: Stefan van der Linden
+ *
+ * DWire (Delft-Wire)
+ * Provides a simple library for handling I2C, trying to be similar to Arduino's Wire library
+ * Many of the variable names and methods are kept identical to the original (Two)Wire.
+ *
  */
 
 #ifndef DWIRE_DWIRE_H_
@@ -45,7 +50,6 @@ private:
 
     uint8_t slaveAddress;
 
-    uint8_t status;
     uint8_t busRole;
 
     void (*user_onRequest)( void );

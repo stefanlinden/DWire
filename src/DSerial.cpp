@@ -5,10 +5,11 @@
  *      Author: Stefan van der Linden
  */
 
-#include "DSerial.h"
-
 /**** INCLUDES ****/
 #include<string.h>
+
+#include "DSerial.h"
+
 
 /**** GLOBAL VARIABLES ****/
 
@@ -17,6 +18,7 @@
 DSerial::DSerial( void ) {
     // Nothing
 }
+
 
 /**** PUBLIC METHODS ****/
 void DSerial::begin( void ) {
@@ -28,7 +30,7 @@ void DSerial::begin( void ) {
     MAP_GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P1,
             GPIO_PIN1 | GPIO_PIN2 | GPIO_PIN3, GPIO_PRIMARY_MODULE_FUNCTION);
 
-    /* Setting DCO to 12MHz */
+    /* Setting DCO to 48MHz */
     CS_setDCOCenteredFrequency(CS_DCO_FREQUENCY_48);
 
     /* Configuring UART Module */
@@ -37,26 +39,28 @@ void DSerial::begin( void ) {
     /* Enable UART module */
     MAP_UART_enableModule(EUSCI_A0_BASE);
 
-    /* Enabling interrupts */
-    /*MAP_UART_enableInterrupt(EUSCI_A0_BASE, EUSCI_A_UART_RECEIVE_INTERRUPT);
-    MAP_Interrupt_enableInterrupt(INT_EUSCIA0);
-    MAP_Interrupt_enableSleepOnIsrExit();
-    MAP_Interrupt_enableMaster();   */
 }
 
-void DSerial::print( const char * text ) {
-    int ii;
-
-    for( ii = 0; ii < strlen(text); ii++ ) {
-        //MAP_UART_transmitData(EUSCI_A0_BASE, text[ii]);
-        print(text[ii]);
-    }
-}
-
+/**
+ * Transmit a single byte over the UART
+ */
 void DSerial::print( uint_fast8_t byte ) {
     MAP_UART_transmitData(EUSCI_A0_BASE, byte);
 }
 
+/**
+ * Print a string over the UART
+ */
+void DSerial::print( const char * text ) {
+
+    for( int ii = 0; ii < strlen(text); ii++ ) {
+        print(text[ii]);
+    }
+}
+
+/**
+ * Print text and end with a newline
+ */
 void DSerial::println( const char * text ) {
     // The same as print, but add a carriage return after the message
     print(text);
@@ -64,5 +68,5 @@ void DSerial::println( const char * text ) {
     MAP_UART_transmitData(EUSCI_A0_BASE, '\n');
 }
 
-/**** PRIVATE METHODS ****/
 
+/**** PRIVATE METHODS ****/

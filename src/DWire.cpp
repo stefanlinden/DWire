@@ -20,10 +20,20 @@ extern "C" {
 
 #include "DWire.h"
 
-/**** PROTOTYPES ****/
 
-void IRQHandler( uint32_t module, uint8_t *, uint8_t *, std::vector<uint8_t> *,
-        uint8_t *, uint8_t * );
+/**** PROTOTYPES AND CLASSES ****/
+
+typedef struct {
+    uint32_t module;
+    uint8_t * rxBuffer;
+    uint8_t * rxBufferIndex;
+    uint8_t * txBuffer;
+    uint8_t * txBufferIndex;
+    uint8_t * txBufferSize;
+} IRQParam;
+
+void IRQHandler( IRQParam );
+
 
 /**** GLOBAL VARIABLES ****/
 
@@ -68,9 +78,8 @@ uint8_t * EUSCIB3_rxBuffer = new uint8_t[RX_BUFFER_SIZE];
 uint8_t EUSCIB3_rxBufferIndex = 0;
 #endif
 
-// TODO find a way of not using a hash map
+// TODO find an efficient way of getting rid of the hashmap
 static std::hash_map<uint32_t, DWire *> moduleMap;
-
 
 /**** CONSTRUCTORS ****/
 
@@ -127,7 +136,6 @@ DWire::~DWire( ) {
     moduleMap[module] = 0;
 }
 
-
 /**** PUBLIC METHODS ****/
 
 void DWire::begin( void ) {
@@ -136,9 +144,9 @@ void DWire::begin( void ) {
 
     const eUSCI_I2C_MasterConfig i2cConfig = {
     EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
-            48000000,                                // SMCLK = 3MHz
-            EUSCI_B_I2C_SET_DATA_RATE_400KBPS,       // Desired I2C Clock of 400khz // TODO make configurable
-            0,                                       // No byte counter threshold
+            48000000,                                // SMCLK = 48MHz
+            EUSCI_B_I2C_SET_DATA_RATE_400KBPS, // Desired I2C Clock of 400khz // TODO make configurable
+            0,                                      // No byte counter threshold
             EUSCI_B_I2C_NO_AUTO_STOP                 // No Autostop
             };
     _initMaster(&i2cConfig);
@@ -355,20 +363,19 @@ void DWire::_handleReceive( uint8_t * rxBufferIndex, uint8_t * rxBuffer ) {
 /**
  * The main (global) interrupt  handler
  */
-void IRQHandler( uint32_t module, uint8_t * rxBuffer, uint8_t * rxBufferIndex,
-        uint8_t * txBuffer, uint8_t * txBufferIndex, uint8_t * txBufferSize ) {
+void IRQHandler( IRQParam param ) {
 
     uint_fast16_t status;
 
-    status = MAP_I2C_getEnabledInterruptStatus(module);
-    MAP_I2C_clearInterruptFlag(module, status);
+    status = MAP_I2C_getEnabledInterruptStatus(param.module);
+    MAP_I2C_clearInterruptFlag(param.module, status);
 
     /* RXIFG */
     // Triggered when data has been received
     if ( status & EUSCI_B_I2C_RECEIVE_INTERRUPT0 ) {
 
-        rxBuffer[*rxBufferIndex] = MAP_I2C_slaveGetData(module);
-        (*rxBufferIndex)++;
+        param.rxBuffer[*param.rxBufferIndex] = MAP_I2C_slaveGetData(param.module);
+        (*param.rxBufferIndex)++;
     }
 
     // As master: triggered when a byte has been transmitted
@@ -376,20 +383,20 @@ void IRQHandler( uint32_t module, uint8_t * rxBuffer, uint8_t * rxBufferIndex,
     if ( status & EUSCI_B_I2C_TRANSMIT_INTERRUPT0 ) {
 
         // If we've transmitted the last byte from the buffer, then send a stop
-        if ( !(*txBufferIndex) ) {
-            MAP_I2C_masterSendMultiByteStop(module);
+        if ( !(*param.txBufferIndex) ) {
+            MAP_I2C_masterSendMultiByteStop(param.module);
         } else {
 
             // If we still have data left in the buffer, then transmit that
-            MAP_I2C_masterSendMultiByteNext(module,
-                    txBuffer[(*txBufferSize) - (*txBufferIndex)]);
-            (*txBufferIndex)--;
+            MAP_I2C_masterSendMultiByteNext(param.module,
+                    param.txBuffer[(*param.txBufferSize) - (*param.txBufferIndex)]);
+            (*param.txBufferIndex)--;
         }
 
     }
 
     if ( status & EUSCI_B_I2C_NAK_INTERRUPT ) {
-        MAP_I2C_masterSendStart(module);
+        MAP_I2C_masterSendStart(param.module);
         // TODO verify whether this is enough or we need to bring back the buffer by one item
     }
 
@@ -397,9 +404,9 @@ void IRQHandler( uint32_t module, uint8_t * rxBuffer, uint8_t * rxBufferIndex,
      * Called when a STOP is received
      */
     if ( status & EUSCI_B_I2C_STOP_INTERRUPT ) {
-        DWire * instance = moduleMap[module];
+        DWire * instance = moduleMap[param.module];
         if ( instance ) {
-            instance->_handleReceive(rxBufferIndex, rxBuffer);
+            instance->_handleReceive(param.rxBufferIndex, param.rxBuffer);
         }
     }
 }
@@ -410,8 +417,15 @@ void IRQHandler( uint32_t module, uint8_t * rxBuffer, uint8_t * rxBufferIndex,
  */
 extern "C" {
 void EUSCIB0_IRQHandler( void ) {
-    IRQHandler(EUSCI_B0_BASE, EUSCIB0_rxBuffer, &EUSCIB0_rxBufferIndex,
-            EUSCIB0_txBuffer, &EUSCIB0_txBufferIndex, &EUSCIB0_txBufferSize);
+    IRQParam param;
+    param.module = EUSCI_B0_BASE;
+    param.rxBuffer = EUSCIB0_rxBuffer;
+    param.rxBufferIndex = &EUSCIB0_rxBufferIndex;
+    param.txBuffer = EUSCIB0_txBuffer;
+    param.txBufferIndex = &EUSCIB0_txBufferIndex;
+    param.txBufferSize = &EUSCIB0_txBufferSize;
+
+    IRQHandler(param);
 }
 }
 
@@ -420,11 +434,63 @@ void EUSCIB0_IRQHandler( void ) {
 
 #ifdef USING_EUSCI_B1
 /*
- * Handle everything on EUSCI_B0
+ * Handle everything on EUSCI_B1
  */
+extern "C" {
 void EUSCIB1_IRQHandler( void ) {
-    IRQHandler(EUSCI_B1_BASE, &EUSCIB1_rxBuffer, &EUSCIB1_rxBufferIndex);
+    IRQParam param;
+    param.module = EUSCI_1_BASE;
+    param.rxBuffer = EUSCIB1_rxBuffer;
+    param.rxBufferIndex = &EUSCIB1_rxBufferIndex;
+    param.txBuffer = EUSCIB1_txBuffer;
+    param.txBufferIndex = &EUSCIB1_txBufferIndex;
+    param.txBufferSize = &EUSCIB1_txBufferSize;
+
+    IRQHandler(param);
+}
 }
 
 /* USING_EUSCI_B1 */
+#endif
+
+#ifdef USING_EUSCI_B2
+/*
+ * Handle everything on EUSCI_B2
+ */
+extern "C" {
+void EUSCIB2_IRQHandler( void ) {
+    IRQParam param;
+    param.module = EUSCI_B2_BASE;
+    param.rxBuffer = EUSCIB2_rxBuffer;
+    param.rxBufferIndex = &EUSCIB2_rxBufferIndex;
+    param.txBuffer = EUSCIB2_txBuffer;
+    param.txBufferIndex = &EUSCIB2_txBufferIndex;
+    param.txBufferSize = &EUSCIB2_txBufferSize;
+
+    IRQHandler(param);
+}
+}
+
+/* USING_EUSCI_B2 */
+#endif
+
+#ifdef USING_EUSCI_B3
+/*
+ * Handle everything on EUSCI_B3
+ */
+extern "C" {
+void EUSCIB3_IRQHandler( void ) {
+    IRQParam param;
+    param.module = EUSCI_B3_BASE;
+    param.rxBuffer = EUSCIB3_rxBuffer;
+    param.rxBufferIndex = &EUSCIB3_rxBufferIndex;
+    param.txBuffer = EUSCIB3_txBuffer;
+    param.txBufferIndex = &EUSCIB3_txBufferIndex;
+    param.txBufferSize = &EUSCIB3_txBufferSize;
+
+    IRQHandler(param);
+}
+}
+
+/* USING_EUSCI_B0 */
 #endif

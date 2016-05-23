@@ -13,16 +13,12 @@
 #ifndef DWIRE_DWIRE_H_
 #define DWIRE_DWIRE_H_
 
+
 #define USING_EUSCI_B0
 #undef USING_EUSCI_B1
 #undef USING_EUSCI_B2
 #undef USING_EUSCI_B3
 
-// Bus status: simple int as multiple objects can have different discrete statuses (so not const)
-#define BUS_STATUS_NONE 0
-#define BUS_STATUS_RDY 1
-#define BUS_STATUS_TX 2
-#define BUS_STATUS_RX 3
 
 // Similar for the roles
 #define BUS_ROLE_MASTER 0

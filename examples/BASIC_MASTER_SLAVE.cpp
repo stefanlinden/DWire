@@ -17,8 +17,7 @@
  */
 
 // Comment out/#undef the next line if the code is to be used as a slave setup
-#define I2C_MASTER
-
+//#define I2C_MASTER
 
 /* Standard Includes */
 
@@ -37,19 +36,17 @@ DSerial * serial;
 
 void handleReceive( uint8_t );
 
-
-int main(void)
-{
+int main( void ) {
     /* Disabling the Watchdog */
-    MAP_WDT_A_holdTimer();
+    MAP_WDT_A_holdTimer( );
 
     // Start the serial port
-    serial = new DSerial();
-    serial->begin();
+    serial = new DSerial( );
+    serial->begin( );
     serial->println("Starting...");
 
     // Create a new instance of DWire on the EUSCI_B0_BASE module
-    wire = new DWire( EUSCI_B0_BASE );
+    wire = new DWire( EUSCI_B0_BASE);
 
 // The code for the master setup
 #ifdef I2C_MASTER
@@ -80,12 +77,13 @@ int main(void)
 // slave code
 #else
     // Start the module as a slave on address 0x42
-    wire->begin( 0x42 );
+    wire->begin(0x42);
     wire->onReceive(handleReceive);
     serial->println("Ready as slave.");
 
     // Loop, with interrupts running the different parts of the slave
-    while(1);
+    while ( 1 )
+        ;
 #endif
 
 }
@@ -100,11 +98,11 @@ void handleReceive( uint8_t numBytes ) {
     serial->print("Got a message: ");
 
     // Get the rx buffer's contents from the DWire object
-    for(int i = 0; i < numBytes; i++) {
-        uint8_t byte = wire->read();
+    for ( int i = 0; i < numBytes; i++ ) {
+        uint8_t byte = wire->read( );
 
-    // Print the contents of the received byte
-    serial->print( byte );
+        // Print the contents of the received byte
+        serial->print(byte);
     }
 
     // End the line in preparation of the next receive event

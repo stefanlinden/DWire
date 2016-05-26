@@ -39,6 +39,8 @@ public:
     void begin( void );
     void print( uint_fast8_t );
     void print( const char * );
+    void println( void );
+    void println( uint_fast8_t );
     void println( const char * );
 };
 

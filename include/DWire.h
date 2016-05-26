@@ -42,7 +42,13 @@ private:
 
     volatile uint8_t rxReadIndex;
     volatile uint8_t rxReadLength;
-    uint8_t * rxBuffer;
+
+    uint8_t * rxLocalBuffer;
+
+    uint8_t * pRxBufferIndex;
+    uint8_t * pRxBufferSize;
+
+    volatile bool requestDone;
 
     uint8_t slaveAddress;
 
@@ -55,25 +61,35 @@ private:
     void _initSlave( void );
     void _setSlaveAddress( uint_fast8_t );
 
-    void _handleRequest( void );
-
 public:
+    /* Constructors */
     DWire( uint32_t );
     ~DWire( );
+
+    /* MASTER specific */
     void begin( void );
-    void begin( uint8_t );
 
     void beginTransmission( uint_fast8_t );
     void write( uint8_t );
     void endTransmission( void );
+
+    uint8_t * requestFrom( uint_fast8_t, uint_fast8_t );
+
+    /* SLAVE specific */
+    void begin( uint8_t );
 
     uint8_t read( void );
 
     void onRequest( void (*)( void ) );
     void onReceive( void (*)( uint8_t ) );
 
-    void _handleReceive( uint8_t *, uint8_t * );
+    /* Miscellaneous */
+    bool isMaster( void );
 
+    /* Internal */
+    void _handleReceive( uint8_t * );
+    void _handleRequestMaster( uint8_t * );
+    void _handleRequestSlave( void );
 };
 
 #endif /* DWIRE_DWIRE_H_ */

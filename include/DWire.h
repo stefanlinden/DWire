@@ -36,15 +36,16 @@ class DWire {
 private:
     uint_fast32_t module;
 
-    uint8_t * pTxBufferIndex;
+    volatile uint8_t * pTxBufferIndex;
     uint8_t * pTxBuffer;
-    uint8_t * pTxBufferSize;
+    volatile uint8_t * pTxBufferSize;
 
     volatile uint8_t rxReadIndex;
     volatile uint8_t rxReadLength;
 
     uint8_t * rxLocalBuffer;
 
+    uint8_t * pRxBuffer;
     uint8_t * pRxBufferIndex;
     uint8_t * pRxBufferSize;
 
@@ -53,6 +54,8 @@ private:
     uint8_t slaveAddress;
 
     uint8_t busRole;
+
+    uint32_t intModule;
 
     void (*user_onRequest)( void );
     void (*user_onReceive)( uint8_t );

@@ -227,6 +227,8 @@ uint8_t * DWire::requestFrom( uint_fast8_t slaveAddress,
     if ( busRole != BUS_ROLE_MASTER )
         return 0;
 
+    numBytes--;
+
     // Re-initialise the rx buffer
     *pRxBufferSize = numBytes;
     *pRxBufferIndex = 0;
@@ -410,10 +412,22 @@ void DWire::_handleRequestMaster( uint8_t * rxBuffer ) {
  * Handle a request ISL as a slave
  */
 void DWire::_handleRequestSlave( void ) {
-    // If the user hasn't registered an interrupt handle, then continue
     if ( !user_onRequest )
         return;
-    user_onRequest( );
+    if ( !(*pTxBufferIndex) ) {
+        user_onRequest( );
+
+        *pTxBufferSize = *pTxBufferIndex;
+        *pTxBufferIndex = 0;
+    }
+
+    if ( *pTxBufferIndex == *pTxBufferSize ) {
+        *pTxBufferIndex = 0;
+        *pTxBufferSize = 0;
+    } else {
+        MAP_I2C_slavePutData(module, pTxBuffer[*pTxBufferIndex]);
+        (*pTxBufferIndex)++;
+    }
 }
 
 /**
@@ -506,7 +520,7 @@ void IRQHandler( IRQParam param ) {
 
     // Handle a NAK
     if ( status & EUSCI_B_I2C_NAK_INTERRUPT ) {
-        MAP_I2C_masterSendStart(param.module);
+        //MAP_I2C_masterSendStart(param.module);
         // TODO verify whether this is enough or we need to bring back the buffer by one
     }
 

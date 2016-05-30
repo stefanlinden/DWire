@@ -91,8 +91,8 @@ public:
 
     /* Internal */
     void _handleReceive( uint8_t * );
-    void _handleRequestMaster( uint8_t * );
     void _handleRequestSlave( void );
+    void _markRequestDone( void );
 };
 
 #endif /* DWIRE_DWIRE_H_ */

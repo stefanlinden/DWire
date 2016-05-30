@@ -84,6 +84,15 @@ uint8_t EUSCIB3_rxBufferSize = 0;
 // TODO find an efficient way of getting rid of the hashmap
 static std::hash_map<uint32_t, DWire *> moduleMap;
 
+// The default eUSCI settings
+eUSCI_I2C_MasterConfig i2cConfig = {
+EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
+        MAP_CS_getSMCLK( ),                 // Get the SMCLK clock frequency
+        EUSCI_B_I2C_SET_DATA_RATE_400KBPS, // Desired I2C Clock of 400khz // TODO make configurable
+        0,                                      // No byte counter threshold
+        EUSCI_B_I2C_NO_AUTO_STOP                 // No Autostop
+        };
+
 /**** CONSTRUCTORS ****/
 
 DWire::DWire( uint32_t module ) {
@@ -108,6 +117,7 @@ DWire::DWire( uint32_t module ) {
         pTxBufferIndex = &EUSCIB0_txBufferIndex;
         pTxBufferSize = &EUSCIB0_txBufferSize;
 
+        pRxBuffer = EUSCIB0_rxBuffer;
         pRxBufferIndex = &EUSCIB0_rxBufferIndex;
         pRxBufferSize = &EUSCIB0_rxBufferSize;
         break;
@@ -152,14 +162,7 @@ void DWire::begin( void ) {
     // Initialising the given module as a master
     busRole = BUS_ROLE_MASTER;
 
-    const eUSCI_I2C_MasterConfig i2cConfig = {
-    EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
-            MAP_CS_getSMCLK( ),                 // Get the SMCLK clock frequency
-            EUSCI_B_I2C_SET_DATA_RATE_400KBPS, // Desired I2C Clock of 400khz // TODO make configurable
-            0,                                      // No byte counter threshold
-            EUSCI_B_I2C_NO_AUTO_STOP                 // No Autostop
-            };
-    _initMaster(&i2cConfig);
+    _initMaster((const eUSCI_I2C_MasterConfig *) &i2cConfig);
 }
 
 void DWire::begin( uint8_t address ) {
@@ -189,16 +192,9 @@ void DWire::beginTransmission( uint_fast8_t slaveAddress ) {
  * Write a single byte
  */
 void DWire::write( uint8_t dataByte ) {
-    // If we're a master, then we're simply adding to the buffer
-    if ( isMaster( ) ) {
-        pTxBuffer[*pTxBufferIndex] = dataByte;
-        (*pTxBufferIndex)++;
-    } else {
-        // If we're a slave, then we're responding to a master
-        MAP_I2C_disableInterrupt(module, EUSCI_B_I2C_TRANSMIT_INTERRUPT0);
-        MAP_I2C_slavePutData(module, dataByte);
-        MAP_I2C_enableInterrupt(module, EUSCI_B_I2C_TRANSMIT_INTERRUPT0);
-    }
+    // Add data to the tx buffer
+    pTxBuffer[*pTxBufferIndex] = dataByte;
+    (*pTxBufferIndex)++;
 }
 
 /**
@@ -227,35 +223,72 @@ uint8_t * DWire::requestFrom( uint_fast8_t slaveAddress,
     if ( busRole != BUS_ROLE_MASTER )
         return 0;
 
-    numBytes--;
-
     // Re-initialise the rx buffer
     *pRxBufferSize = numBytes;
     *pRxBufferIndex = 0;
 
-    // Make sure we're targeting the correct slave
-    if ( this->slaveAddress != slaveAddress ) {
-        MAP_I2C_setSlaveAddress(module, slaveAddress);
-        this->slaveAddress = slaveAddress;
-    }
+    MAP_I2C_disableModule(module);
 
-    // Initialise the correct interrupt
-    MAP_I2C_clearInterruptFlag(module, EUSCI_B_I2C_RECEIVE_INTERRUPT0);
+    // Configure the autostop and restart the module
+    i2cConfig.byteCounterThreshold = numBytes;
+    i2cConfig.autoSTOPGeneration =
+    EUSCI_B_I2C_SEND_STOP_AUTOMATICALLY_ON_BYTECOUNT_THRESHOLD;
+
+    MAP_I2C_initMaster(module, (const eUSCI_I2C_MasterConfig *) &i2cConfig);
+
+    MAP_I2C_enableModule(module);
+
+    // Configure the correct slave
+    MAP_I2C_setSlaveAddress(module, slaveAddress);
+    this->slaveAddress = slaveAddress;
 
     // Set the master into receive mode
     MAP_I2C_setMode(module, EUSCI_B_I2C_RECEIVE_MODE);
 
-    // Send the START
-    MAP_I2C_masterReceiveStart(EUSCI_B0_BASE);
+    // Initialise the correct interrupt
+    MAP_I2C_clearInterruptFlag(module,
+    EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_BYTE_COUNTER_INTERRUPT);
 
     // Enable the receive interrupt, triggered when the slave responds with data
-    MAP_I2C_enableInterrupt(module, EUSCI_B_I2C_RECEIVE_INTERRUPT0);
+    MAP_I2C_enableInterrupt(module,
+    EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_BYTE_COUNTER_INTERRUPT);
 
+    // Send the START
+    MAP_I2C_masterReceiveStart(module);
+
+    // Initialize the flag showing the status of the request
     requestDone = false;
 
     while ( !requestDone )
         ;
 
+    MAP_I2C_disableInterrupt(module,
+    EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_BYTE_COUNTER_INTERRUPT);
+    MAP_I2C_disableModule(module);
+
+    for ( int i = 0; i <= *pRxBufferSize; i++ ) {
+        if ( pRxBuffer[i] == 0 ) {
+            this->rxLocalBuffer[i] = 0x30;
+        } else {
+            this->rxLocalBuffer[i] = pRxBuffer[i];
+        }
+    }
+
+    // Reset the buffer
+    (*pRxBufferIndex) = 0;
+    (*pRxBufferSize) = 0;
+
+    // Configure the autostop and restart the module
+    i2cConfig.byteCounterThreshold = 0;
+    i2cConfig.autoSTOPGeneration = EUSCI_B_I2C_NO_AUTO_STOP;
+
+    MAP_I2C_initMaster(module, (const eUSCI_I2C_MasterConfig *) &i2cConfig);
+
+    // Configure the correct slave
+    MAP_I2C_setSlaveAddress(module, slaveAddress);
+    this->slaveAddress = slaveAddress;
+
+    // Set the master back into transmit mode
     MAP_I2C_setMode(module, EUSCI_B_I2C_TRANSMIT_MODE);
 
     return rxLocalBuffer;
@@ -394,21 +427,6 @@ void DWire::_setSlaveAddress( uint_fast8_t newAddress ) {
 }
 
 /**
- * Handle a request ISL
- */
-void DWire::_handleRequestMaster( uint8_t * rxBuffer ) {
-
-    for ( int i = 0; i < *pRxBufferSize; i++ )
-        this->rxLocalBuffer[i] = rxBuffer[i];
-
-    // Reset the main buffer
-    (*pRxBufferIndex) = 0;
-    (*pRxBufferSize) = 0;
-
-    requestDone = true;
-}
-
-/**
  * Handle a request ISL as a slave
  */
 void DWire::_handleRequestSlave( void ) {
@@ -456,6 +474,10 @@ void DWire::_handleReceive( uint8_t * rxBuffer ) {
     user_onReceive(rxReadLength);
 }
 
+void DWire::_markRequestDone( void ) {
+    requestDone = true;
+}
+
 /**** ISR/IRQ Handles ****/
 
 /**
@@ -478,14 +500,6 @@ void IRQHandler( IRQParam param ) {
             MAP_I2C_masterReceiveMultiByteNext(param.module);
             (*param.rxBufferIndex)++;
 
-            // If we just received the last (expected) byte
-            if ( *param.rxBufferIndex == *param.rxBufferSize ) {
-                MAP_I2C_masterReceiveMultiByteStop(param.module);
-                DWire * instance = moduleMap[param.module];
-                if ( instance ) {
-                    instance->_handleRequestMaster(param.rxBuffer);
-                }
-            }
             // Otherwise we're a slave receiving data
         } else {
             param.rxBuffer[*param.rxBufferIndex] = MAP_I2C_slaveGetData(
@@ -504,8 +518,8 @@ void IRQHandler( IRQParam param ) {
             // If we've transmitted the last byte from the buffer, then send a stop
             if ( !(*param.txBufferIndex) ) {
                 MAP_I2C_masterSendMultiByteStop(param.module);
-            } else {
 
+            } else {
                 // If we still have data left in the buffer, then transmit that
                 MAP_I2C_masterSendMultiByteNext(param.module,
                         param.txBuffer[(*param.txBufferSize)
@@ -518,9 +532,16 @@ void IRQHandler( IRQParam param ) {
         }
     }
 
+    if ( status & EUSCI_B_I2C_BYTE_COUNTER_INTERRUPT ) {
+        DWire * instance = moduleMap[param.module];
+        if ( instance ) {
+            instance->_markRequestDone( );
+        }
+    }
+
     // Handle a NAK
     if ( status & EUSCI_B_I2C_NAK_INTERRUPT ) {
-        //MAP_I2C_masterSendStart(param.module);
+        MAP_I2C_masterSendStart(param.module);
         // TODO verify whether this is enough or we need to bring back the buffer by one
     }
 
@@ -528,7 +549,9 @@ void IRQHandler( IRQParam param ) {
      * Called when a STOP is received
      */
     if ( status & EUSCI_B_I2C_STOP_INTERRUPT ) {
-        if ( param.rxBufferIndex != 0 ) {
+        if( *param.txBufferIndex != 0) {
+
+        } else if ( *param.rxBufferIndex != 0 ) {
             DWire * instance = moduleMap[param.module];
             if ( instance ) {
                 instance->_handleReceive(param.rxBuffer);

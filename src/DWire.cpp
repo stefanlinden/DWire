@@ -549,8 +549,14 @@ void IRQHandler( IRQParam param ) {
      * Called when a STOP is received
      */
     if ( status & EUSCI_B_I2C_STOP_INTERRUPT ) {
-        if( *param.txBufferIndex != 0) {
-
+        DWire * instance = moduleMap[param.module];
+                if ( !instance ) {
+                    return;
+                }
+        if( *param.txBufferIndex != 0 && !instance->isMaster() ) {
+            MAP_I2C_slavePutData(EUSCI_B0_BASE, 0);
+            *param.rxBufferIndex = 0;
+            *param.rxBufferSize = 0;
         } else if ( *param.rxBufferIndex != 0 ) {
             DWire * instance = moduleMap[param.module];
             if ( instance ) {

@@ -29,12 +29,19 @@
 #define RX_BUFFER_SIZE 32
 
 /* Driverlib */
-#include "driverlib.h"
+#include "i2c.h"
+#include "cs.h"
+#include "gpio.h"
+#include "interrupt.h"
+#include "rom_map.h"
+
+/* Device specific includes */
+#include "dwire_pins.h"
+
 
 /* Main class definition */
 class DWire {
 private:
-    uint_fast32_t module;
 
     volatile uint8_t * pTxBufferIndex;
     uint8_t * pTxBuffer;
@@ -57,6 +64,9 @@ private:
 
     uint32_t intModule;
 
+    uint_fast8_t modulePort;
+    uint_fast16_t modulePins;
+
     void (*user_onRequest)( void );
     void (*user_onReceive)( uint8_t );
 
@@ -65,6 +75,9 @@ private:
     void _setSlaveAddress( uint_fast8_t );
 
 public:
+
+    uint_fast32_t module;
+
     /* Constructors */
     DWire( uint32_t );
     ~DWire( );
@@ -94,5 +107,6 @@ public:
     void _handleRequestSlave( void );
     void _markRequestDone( void );
 };
+
 
 #endif /* DWIRE_DWIRE_H_ */

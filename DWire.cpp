@@ -47,33 +47,33 @@ uint8_t EUSCIB0_rxBufferSize = 0;
 
 #ifdef USING_EUSCI_B1
 
-uint8_t * EUSCIB1_txBuffer = new uint8_t[TX_BUFFER_SIZE];
+uint8_t EUSCIB1_txBuffer[TX_BUFFER_SIZE];
 uint8_t EUSCIB1_txBufferIndex = 0;
 uint8_t EUSCIB1_txBufferSize = 0;
 
-uint8_t * EUSCIB1_rxBuffer = new uint8_t[RX_BUFFER_SIZE];
+uint8_t EUSCIB1_rxBuffer[RX_BUFFER_SIZE];
 uint8_t EUSCIB1_rxBufferIndex = 0;
 uint8_t EUSCIB1_rxBufferSize = 0;
 #endif
 
 #ifdef USING_EUSCI_B2
 
-uint8_t * EUSCIB2_txBuffer = new uint8_t[TX_BUFFER_SIZE];
+uint8_t EUSCIB2_txBuffer[TX_BUFFER_SIZE];
 uint8_t EUSCIB2_txBufferIndex = 0;
 uint8_t EUSCIB2_txBufferSize = 0;
 
-uint8_t * EUSCIB2_rxBuffer = new uint8_t[RX_BUFFER_SIZE];
+uint8_t EUSCIB2_rxBuffer[RX_BUFFER_SIZE];
 uint8_t EUSCIB2_rxBufferIndex = 0;
 uint8_t EUSCIB2_rxBufferSize = 0;
 #endif
 
 #ifdef USING_EUSCI_B3
 
-uint8_t * EUSCIB3_txBuffer = new uint8_t[TX_BUFFER_SIZE];
+uint8_t EUSCIB3_txBuffer[TX_BUFFER_SIZE];
 uint8_t EUSCIB3_txBufferIndex = 0;
 uint8_t EUSCIB3_txBufferSize = 0;
 
-uint8_t * EUSCIB3_rxBuffer = new uint8_t[RX_BUFFER_SIZE];
+uint8_t EUSCIB3_rxBuffer[RX_BUFFER_SIZE];
 uint8_t EUSCIB3_rxBufferIndex = 0;
 uint8_t EUSCIB3_rxBufferSize = 0;
 #endif
@@ -172,7 +172,34 @@ DWire::DWire( uint32_t module ) {
         return;
     }
 
-    MAP_I2C_registerInterrupt(module, EUSCIB0_IRQHandler);
+#ifdef ENERGIA
+    switch(module) {
+#ifdef USING_EUSCI_B0
+    case EUSCI_B0_BASE:
+        MAP_I2C_registerInterrupt(module, EUSCIB0_IRQHandler);
+        break;
+#endif
+
+#ifdef USING_EUSCI_B1
+    case EUSCI_B1_BASE:
+        MAP_I2C_registerInterrupt(module, EUSCIB1_IRQHandler);
+        break;
+#endif
+
+#ifdef USING_EUSCI_B2
+    case EUSCI_B2_BASE:
+        MAP_I2C_registerInterrupt(module, EUSCIB2_IRQHandler);
+        break;
+#endif
+
+#ifdef USING_EUSCI_B3
+    case EUSCI_B3_BASE:
+        MAP_I2C_registerInterrupt(module, EUSCIB3_IRQHandler);
+        break;
+#endif
+    }
+
+#endif
     
     // Register this instance in the 'moduleMap'
     registerModule(this);
@@ -556,7 +583,7 @@ void IRQHandler( IRQParam param ) {
         DWire * instance = getInstance(param.module);
         if ( instance ) {
             if ( *param.txBufferIndex != 0 && !instance->isMaster( ) ) {
-                MAP_I2C_slavePutData(EUSCI_B0_BASE, 0);
+                MAP_I2C_slavePutData(instance->module, 0);
                 *param.rxBufferIndex = 0;
                 *param.rxBufferSize = 0;
             } else if ( *param.rxBufferIndex != 0 ) {
@@ -595,7 +622,7 @@ void EUSCIB0_IRQHandler( void ) {
 extern "C" {
     void EUSCIB1_IRQHandler( void ) {
         IRQParam param;
-        param.module = EUSCI_1_BASE;
+        param.module = EUSCI_B1_BASE;
         param.rxBuffer = EUSCIB1_rxBuffer;
         param.rxBufferIndex = &EUSCIB1_rxBufferIndex;
         param.rxBufferSize = &EUSCIB1_rxBufferSize;

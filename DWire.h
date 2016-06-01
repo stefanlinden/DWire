@@ -15,9 +15,9 @@
 
 
 #define USING_EUSCI_B0
-#undef USING_EUSCI_B1
-#undef USING_EUSCI_B2
-#undef USING_EUSCI_B3
+#define USING_EUSCI_B1
+#define USING_EUSCI_B2
+#define USING_EUSCI_B3
 
 
 // Similar for the roles
@@ -40,7 +40,21 @@
 
 #ifdef ENERGIA
 extern "C" {
+#ifdef USING_EUSCI_B0
 extern void EUSCIB0_IRQHandler( void );
+#endif
+
+#ifdef USING_EUSCI_B1
+extern void EUSCIB1_IRQHandler( void );
+#endif
+
+#ifdef USING_EUSCI_B2
+extern void EUSCIB2_IRQHandler( void );
+#endif
+
+#ifdef USING_EUSCI_B3
+extern void EUSCIB3_IRQHandler( void );
+#endif
 }
 #endif
 

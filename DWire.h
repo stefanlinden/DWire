@@ -29,11 +29,7 @@
 #define RX_BUFFER_SIZE 32
 
 /* Driverlib */
-#include "i2c.h"
-#include "cs.h"
-#include "gpio.h"
-#include "interrupt.h"
-#include "rom_map.h"
+#include "driverlib.h"
 
 /* Device specific includes */
 #include "dwire_pins.h"

@@ -105,7 +105,7 @@ public:
     /* Internal */
     void _handleReceive( uint8_t * );
     void _handleRequestSlave( void );
-    void _markRequestDone( void );
+    void _finishRequest( void );
 };
 
 

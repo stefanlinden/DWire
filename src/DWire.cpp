@@ -14,7 +14,6 @@
 
 #include "modulemap.h"
 
-
 /**** PROTOTYPES AND CLASSES ****/
 
 /* A data structure containing pointers to relevant buffers
@@ -31,7 +30,6 @@ typedef struct {
 
 /* The main IRQ handling function */
 void IRQHandler( IRQParam );
-
 
 /**** GLOBAL VARIABLES ****/
 
@@ -167,6 +165,23 @@ DWire::DWire( uint32_t module ) {
         return;
     }
 
+    switch ( module ) {
+    case EUSCI_B0_BASE:
+        intModule = INT_EUSCIB0;
+        break;
+    case EUSCI_B1_BASE:
+        intModule = INT_EUSCIB1;
+        break;
+    case EUSCI_B2_BASE:
+        intModule = INT_EUSCIB2;
+        break;
+    case EUSCI_B3_BASE:
+        intModule = INT_EUSCIB3;
+        break;
+    default:
+        return;
+    }
+
     // Register this instance in the 'moduleMap'
     registerModule(this);
 }
@@ -266,12 +281,10 @@ uint8_t * DWire::requestFrom( uint_fast8_t slaveAddress,
     MAP_I2C_setMode(module, EUSCI_B_I2C_RECEIVE_MODE);
 
     // Initialise the correct interrupt
-    MAP_I2C_clearInterruptFlag(module,
-    EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_BYTE_COUNTER_INTERRUPT);
+    MAP_I2C_clearInterruptFlag(module, EUSCI_B_I2C_RECEIVE_INTERRUPT0);
 
     // Enable the receive interrupt, triggered when the slave responds with data
-    MAP_I2C_enableInterrupt(module,
-    EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_BYTE_COUNTER_INTERRUPT);
+    MAP_I2C_enableInterrupt(module, EUSCI_B_I2C_RECEIVE_INTERRUPT0);
 
     // Send the START
     MAP_I2C_masterReceiveStart(module);
@@ -286,12 +299,6 @@ uint8_t * DWire::requestFrom( uint_fast8_t slaveAddress,
     EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_BYTE_COUNTER_INTERRUPT);
     MAP_I2C_disableModule(module);
 
-    for(int k = 0; k < 5000; k++);
-
-    for ( int i = 0; i <= *pRxBufferSize; i++ ) {
-        this->rxLocalBuffer[i] = pRxBuffer[i];
-    }
-
     // Reset the buffer
     (*pRxBufferIndex) = 0;
     (*pRxBufferSize) = 0;
@@ -300,14 +307,7 @@ uint8_t * DWire::requestFrom( uint_fast8_t slaveAddress,
     i2cConfig.byteCounterThreshold = 0;
     i2cConfig.autoSTOPGeneration = EUSCI_B_I2C_NO_AUTO_STOP;
 
-    MAP_I2C_initMaster(module, (const eUSCI_I2C_MasterConfig *) &i2cConfig);
-
-    // Configure the correct slave
-    MAP_I2C_setSlaveAddress(module, slaveAddress);
-    this->slaveAddress = slaveAddress;
-
-    // Set the master back into transmit mode
-    MAP_I2C_setMode(module, EUSCI_B_I2C_TRANSMIT_MODE);
+    _initMaster((const eUSCI_I2C_MasterConfig *) &i2cConfig);
 
     return rxLocalBuffer;
 }
@@ -373,7 +373,7 @@ void DWire::_initMaster( const eUSCI_I2C_MasterConfig * i2cConfig ) {
     MAP_I2C_initMaster(module, i2cConfig);
 
     // Specify slave address
-    MAP_I2C_setSlaveAddress(module, 0);
+    MAP_I2C_setSlaveAddress(module, slaveAddress);
 
     // Set Master in transmit mode
     MAP_I2C_setMode(module, EUSCI_B_I2C_TRANSMIT_MODE);
@@ -390,23 +390,6 @@ void DWire::_initMaster( const eUSCI_I2C_MasterConfig * i2cConfig ) {
     EUSCI_B_I2C_TRANSMIT_INTERRUPT0 + EUSCI_B_I2C_NAK_INTERRUPT);
 
     // Register the interrupts on the correct module
-    uint32_t intModule;
-    switch ( module ) {
-    case EUSCI_B0_BASE:
-        intModule = INT_EUSCIB0;
-        break;
-    case EUSCI_B1_BASE:
-        intModule = INT_EUSCIB1;
-        break;
-    case EUSCI_B2_BASE:
-        intModule = INT_EUSCIB2;
-        break;
-    case EUSCI_B3_BASE:
-        intModule = INT_EUSCIB3;
-        break;
-    default:
-        return;
-    }
     MAP_Interrupt_enableInterrupt(intModule);
 }
 
@@ -497,7 +480,10 @@ void DWire::_handleReceive( uint8_t * rxBuffer ) {
     user_onReceive(rxReadLength);
 }
 
-void DWire::_markRequestDone( void ) {
+void DWire::_finishRequest( void ) {
+    for ( int i = 0; i <= *pRxBufferSize; i++ ) {
+        this->rxLocalBuffer[i] = pRxBuffer[i];
+    }
     requestDone = true;
 }
 
@@ -522,6 +508,13 @@ void IRQHandler( IRQParam param ) {
             param.rxBuffer[*param.rxBufferIndex] =
             MAP_I2C_masterReceiveMultiByteNext(param.module);
             (*param.rxBufferIndex)++;
+
+            if ( *param.rxBufferIndex == *param.rxBufferSize ) {
+                DWire * instance = getInstance(param.module);
+                if ( instance ) {
+                    instance->_finishRequest( );
+                }
+            }
 
             // Otherwise we're a slave receiving data
         } else {
@@ -555,13 +548,6 @@ void IRQHandler( IRQParam param ) {
             } else {
                 instance->_handleRequestSlave( );
             }
-        }
-    }
-
-    if ( status & EUSCI_B_I2C_BYTE_COUNTER_INTERRUPT ) {
-        DWire * instance = getInstance(param.module);
-        if ( instance ) {
-            instance->_markRequestDone( );
         }
     }
 

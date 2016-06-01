@@ -17,24 +17,19 @@
  */
 
 // Comment out/#undef the next line if the code is to be used as a slave setup
-//#define I2C_MASTER
-
-/* Standard Includes */
-
-extern "C" {
-#include <stdint.h>
-#include <stdbool.h>
-#include <stdio.h>
-}
+#define I2C_MASTER
 
 /* Custom Includes */
 #include "DWire.h"
 #include "DSerial.h"
 
-DWire * wire;
+DWire* wire;
 DSerial * serial;
 
+uint_fast8_t i = 0;
+
 void handleReceive( uint8_t );
+void handleRequest( void );
 
 int main( void ) {
     /* Disabling the Watchdog */
@@ -50,42 +45,55 @@ int main( void ) {
 
 // The code for the master setup
 #ifdef I2C_MASTER
-    wire->begin();
+    wire->begin( );
     serial->println("Ready!");
 
     // Loop through all ASCII values and write this to the slave
-    uint_fast8_t i = 0;
-    while(1) {
+
+    while ( 1 ) {
 
         // Start a frame
-        wire->beginTransmission( 0x42 );
+        wire->beginTransmission(0x42);
 
         // Write three bytes
         wire->write(i);
-        wire->write(i+1);
-        wire->write(i+2);
+        wire->write(i + 1);
+        wire->write(i + 2);
         i++;
         serial->println("Sending message");
 
         // Mark the frame as finished. This causes DWire to transmit the buffer's contents
-        wire->endTransmission();
+        wire->endTransmission( );
 
         // Wait a while until transmitting the next frame
-        for(int ii = 0; ii < 50000; ii++);
+        for ( int ii = 0; ii < 50000; ii++ )
+            ;
+
+        serial->println("Requesting data...");
+        uint8_t * data = wire->requestFrom(0x42, 6);
+
+        serial->print("Got: ");
+        for ( int j = 0; j < 6; j++ ) {
+            serial->print(data[j]);
+        }
+        serial->println( );
+
+        for ( int ii = 0; ii < 5000000; ii++ )
+            ;
     }
 
 // slave code
 #else
-    // Start the module as a slave on address 0x42
+    // Start the module as a slave on address 0x48
     wire->begin(0x42);
     wire->onReceive(handleReceive);
+    wire->onRequest(handleRequest);
     serial->println("Ready as slave.");
 
     // Loop, with interrupts running the different parts of the slave
     while ( 1 )
-        ;
+    ;
 #endif
-
 }
 
 /**
@@ -106,5 +114,20 @@ void handleReceive( uint8_t numBytes ) {
     }
 
     // End the line in preparation of the next receive event
-    serial->println("");
+    serial->println( );
+}
+
+/**
+ * Request interrupt handler
+ * This request is called on a read request from a master node.
+ *
+ */
+void handleRequest( void ) {
+    serial->println("Sending six bytes.");
+    wire->write(0x41);
+    wire->write(0x42);
+    wire->write(0x43);
+    wire->write(0x44);
+    wire->write(0x45);
+    wire->write(0x46);
 }

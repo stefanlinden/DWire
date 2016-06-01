@@ -29,11 +29,20 @@
 #define RX_BUFFER_SIZE 32
 
 /* Driverlib */
+#ifdef ENERGIA
+#include "driverlib/driverlib.h"
+#else
 #include "driverlib.h"
+#endif
 
 /* Device specific includes */
-#include "dwire_pins.h"
+#include "inc/dwire_pins.h"
 
+#ifdef ENERGIA
+extern "C" {
+extern void EUSCIB0_IRQHandler( void );
+}
+#endif
 
 /* Main class definition */
 class DWire {
@@ -46,7 +55,7 @@ private:
     volatile uint8_t rxReadIndex;
     volatile uint8_t rxReadLength;
 
-    uint8_t * rxLocalBuffer;
+    uint8_t rxLocalBuffer[RX_BUFFER_SIZE];
 
     uint8_t * pRxBuffer;
     uint8_t * pRxBufferIndex;

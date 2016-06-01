@@ -9,7 +9,12 @@
 #define DWIRE_DSERIAL_H_
 
 /* DRIVERLIB */
+/* Driverlib */
+#ifdef ENERGIA
+#include "driverlib/driverlib.h"
+#else
 #include "driverlib.h"
+#endif
 
 /* UART Configuration Parameter. These are the configuration parameters to
  * make the eUSCI A UART module to operate with a 9600 baud rate. These

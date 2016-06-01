@@ -36,11 +36,11 @@ void IRQHandler( IRQParam );
 // The buffers need to be declared globally, as the interrupts are too
 #ifdef USING_EUSCI_B0
 
-uint8_t * EUSCIB0_txBuffer = new uint8_t[TX_BUFFER_SIZE];
+uint8_t EUSCIB0_txBuffer[TX_BUFFER_SIZE];
 uint8_t EUSCIB0_txBufferIndex = 0;
 uint8_t EUSCIB0_txBufferSize = 0;
 
-uint8_t * EUSCIB0_rxBuffer = new uint8_t[RX_BUFFER_SIZE];
+uint8_t EUSCIB0_rxBuffer[RX_BUFFER_SIZE];
 uint8_t EUSCIB0_rxBufferIndex = 0;
 uint8_t EUSCIB0_rxBufferSize = 0;
 #endif
@@ -96,7 +96,6 @@ DWire::DWire( uint32_t module ) {
     // The receiver buffer and related variables
     rxReadIndex = 0;
     rxReadLength = 0;
-    rxLocalBuffer = new uint8_t[RX_BUFFER_SIZE];
 
     slaveAddress = 0;
 
@@ -117,6 +116,8 @@ DWire::DWire( uint32_t module ) {
 
         modulePort = EUSCI_B0_PORT;
         modulePins = EUSCI_B0_PINS;
+
+        intModule = INT_EUSCIB0;
         break;
 #endif
 #ifdef USING_EUSCI_B1
@@ -131,6 +132,8 @@ DWire::DWire( uint32_t module ) {
 
         modulePort = EUSCI_B1_PORT;
         modulePins = EUSCI_B1_PINS;
+
+        intModule = INT_EUSCIB1;
         break;
 #endif
 #ifdef USING_EUSCI_B2
@@ -145,6 +148,8 @@ DWire::DWire( uint32_t module ) {
 
         modulePort = EUSCI_B2_PORT;
         modulePins = EUSCI_B2_PINS;
+
+        intModule = INT_EUSCIB2;
         break;
 #endif
 #ifdef USING_EUSCI_B3
@@ -159,29 +164,16 @@ DWire::DWire( uint32_t module ) {
 
         modulePort = EUSCI_B3_PORT;
         modulePins = EUSCI_B3_PINS;
+
+        intModule = INT_EUSCIB3;
         break;
 #endif
     default:
         return;
     }
 
-    switch ( module ) {
-    case EUSCI_B0_BASE:
-        intModule = INT_EUSCIB0;
-        break;
-    case EUSCI_B1_BASE:
-        intModule = INT_EUSCIB1;
-        break;
-    case EUSCI_B2_BASE:
-        intModule = INT_EUSCIB2;
-        break;
-    case EUSCI_B3_BASE:
-        intModule = INT_EUSCIB3;
-        break;
-    default:
-        return;
-    }
-
+    MAP_I2C_registerInterrupt(module, EUSCIB0_IRQHandler);
+    
     // Register this instance in the 'moduleMap'
     registerModule(this);
 }

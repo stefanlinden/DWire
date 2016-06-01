@@ -7,6 +7,8 @@
 
 #include "modulemap.h"
 
+ModuleNode * moduleMap = NULL;
+
 /**
  * Register this module in the static moduleMap
  */
@@ -16,16 +18,18 @@ void registerModule( DWire * instance ) {
         return;
     }
 
+    ModuleNode ** head = &moduleMap;
+
     ModuleNode * newModule = new ModuleNode( );
     newModule->instance = instance;
     newModule->module = instance->module;
 
     if ( moduleMap == NULL ) {
         newModule->next = NULL;
-        *moduleMap = newModule;
+        *head = newModule;
     } else {
-        newModule->next = *moduleMap;
-        *moduleMap = newModule;
+        newModule->next = *head;
+        *head = newModule;
     }
 }
 
@@ -34,7 +38,7 @@ void registerModule( DWire * instance ) {
  */
 void unregisterModule( DWire * instance ) {
 
-    ModuleNode * current = *moduleMap;
+    ModuleNode * current = moduleMap;
 
     while ( current->next != NULL ) {
         if ( (current->next)->instance == instance ) {
@@ -52,10 +56,10 @@ void unregisterModule( DWire * instance ) {
  */
 ModuleNode * getModuleNode( uint_fast32_t module ) {
 
-    if ( *moduleMap == NULL )
+    if ( moduleMap == NULL )
         return NULL;
 
-    ModuleNode * current = *moduleMap;
+    ModuleNode * current = moduleMap;
     while ( current != NULL ) {
         if ( current->module == module )
             return current;

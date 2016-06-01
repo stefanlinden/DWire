@@ -35,8 +35,6 @@ void IRQHandler( IRQParam );
 
 /**** GLOBAL VARIABLES ****/
 
-ModuleNode ** moduleMap = NULL;
-
 // The buffers need to be declared globally, as the interrupts are too
 #ifdef USING_EUSCI_B0
 
@@ -287,6 +285,8 @@ uint8_t * DWire::requestFrom( uint_fast8_t slaveAddress,
     MAP_I2C_disableInterrupt(module,
     EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_BYTE_COUNTER_INTERRUPT);
     MAP_I2C_disableModule(module);
+
+    for(int k = 0; k < 5000; k++);
 
     for ( int i = 0; i <= *pRxBufferSize; i++ ) {
         this->rxLocalBuffer[i] = pRxBuffer[i];

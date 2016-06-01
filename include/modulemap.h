@@ -45,6 +45,6 @@ ModuleNode * getModuleNode( uint_fast32_t );
  */
 DWire * getInstance( uint_fast32_t );
 
-extern ModuleNode ** moduleMap;
+extern ModuleNode * moduleMap;
 
 #endif /* INCLUDE_MODULEMAP_H_ */

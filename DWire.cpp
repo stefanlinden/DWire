@@ -174,7 +174,6 @@ DWire::DWire( uint32_t module ) {
         return;
     }
 
-#ifdef ENERGIA
     switch(module) {
 #ifdef USING_EUSCI_B0
     case EUSCI_B0_BASE:
@@ -201,7 +200,6 @@ DWire::DWire( uint32_t module ) {
 #endif
     }
 
-#endif
     
     // Register this instance in the 'moduleMap'
     registerModule(this);

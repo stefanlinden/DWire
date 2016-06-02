@@ -17,6 +17,7 @@ void loop( ) {
     wire.write(i);
     wire.write(i + 1);
     wire.write(i + 2);
+    wire.write(i + 3);
     i++;
 
     // Mark the frame as finished. This causes DWire to transmit the buffer's contents
@@ -25,7 +26,6 @@ void loop( ) {
     delay(200);
 
     // Do a request
-    wire.requestFrom(0x42, 6);
+    wire.requestFrom(0x42, 4);
     delay(400);
 }
-

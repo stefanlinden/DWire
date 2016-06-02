@@ -1,14 +1,19 @@
 #include "DWire.h"
+#include "DSerial.h"
 
-DWire wire( EUSCI_B1_BASE );
+// Initialise the 
+DWire wire( EUSCI_B0_BASE );
+DSerial serial;
+
+uint8_t buff[4];
 uint8_t i;
 
 void setup()
 {
   // Initialise the serial (COM) connection
-  //Serial.begin(9600);
+  serial.begin( );
   delay(100);
-  //Serial.println("Ready as slave...");
+  serial.println("Ready as slave...");
 
   // Start the module as a slave on address 0x48
   wire.begin(0x42);
@@ -18,7 +23,7 @@ void setup()
 
 void loop()
 {
-  // There's no real function here
+  // Simply don't do anything. Interrupts are driving the program
   delay(100);
 }
 
@@ -29,18 +34,17 @@ void loop()
  */
 void handleReceive( uint8_t numBytes ) {
 
-  //Serial.print("Got a message: ");
+  serial.print("Got a message: ");
 
   // Get the rx buffer's contents from the DWire object
   for ( int i = 0; i < numBytes; i++ ) {
-    uint8_t byte = wire.read( );
+    buff[i] = wire.read( );
 
     // Print the contents of the received byte
-    //Serial.print(byte);
+    serial.print(buff[i]);
   }
-
     // End the line in preparation of the next receive event
-   // Serial.println( );
+    serial.println( );
 }
 
 /**
@@ -49,12 +53,12 @@ void handleReceive( uint8_t numBytes ) {
  *
  */
 void handleRequest( void ) {
-    //Serial.println("Sending six bytes.");
-    wire.write(0x41);
-    wire.write(0x42);
-    wire.write(0x43);
-    wire.write(0x44);
-    wire.write(0x45);
-    wire.write(0x46);
+  // Send back the data received from the master
+  serial.println("Sending response.");
+  wire.write(buff[0]);
+  wire.write(buff[1]);
+  wire.write(buff[2]);
+  wire.write(buff[3]);
+
 }
 

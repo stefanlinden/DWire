@@ -17,7 +17,7 @@
 #endif
 
 /* UART Configuration Parameter. These are the configuration parameters to
- * make the eUSCI A UART module to operate with a 9600 baud rate. These
+ * make the eUSCI A UART module to operate with a 19200 baud rate. These
  * values were calculated using the online calculator that TI provides
  * at:
  * http://software-dl.ti.com/msp430/msp430_public_sw/mcu/msp430/MSP430BaudRateConverter/index.html
@@ -26,8 +26,8 @@
 const eUSCI_UART_Config uartConfig =
 {
         EUSCI_A_UART_CLOCKSOURCE_SMCLK,          // SMCLK Clock Source
-        156,                                     // BRDIV = 78
-        4,                                       // UCxBRF = 2
+        78,                                     // BRDIV = 78
+        2,                                       // UCxBRF = 2
         0,                                       // UCxBRS = 0
         EUSCI_A_UART_NO_PARITY,                  // No Parity
         EUSCI_A_UART_LSB_FIRST,                  // LSB First

@@ -1,12 +1,14 @@
 /*
- * DWire.cpp
+ * Copyright (c) 2016 by Stefan van der Linden <spvdlinden@gmail.com>
  *
- *  Created on: 16 May 2016
- *      Author: Stefan van der Linden
+ * DWire: a library to provide full hardware-driven I2C functionality
+ * to the TI MSP432 family of microcontrollers. It is possible to use
+ * this library in Energia (the Arduino port for MSP microcontrollers)
+ * or in other toolchains.
  *
- * DWire (Delft-Wire)
- * Provides a simple library for handling I2C, trying to be similar to Arduino's Wire library
- * Many of the variable names and methods are kept identical to the original (Two)Wire.
+ * This file is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License 
+ * version 3, both as published by the Free Software Foundation.
  *
  */
 

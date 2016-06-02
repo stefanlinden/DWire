@@ -1,8 +1,13 @@
 /*
- * DSerial.h
+ * Copyright (c) 2016 by Stefan van der Linden <spvdlinden@gmail.com>
  *
- *  Created on: 18 May 2016
- *      Author: stefa_000
+ * DSerial: Serial library to provide Energia-like UART functionality
+ * to non-Energia projects
+ *
+ * This file is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU Lesser General Public License 
+ * version 3, both as published by the Free Software Foundation.
+ *
  */
 
 #ifndef DWIRE_DSERIAL_H_

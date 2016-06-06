@@ -14,12 +14,14 @@
 #define DWIRE_DSERIAL_H_
 
 /* DRIVERLIB */
-/* Driverlib */
 #ifdef ENERGIA
 #include "driverlib/driverlib.h"
 #else
 #include "driverlib.h"
 #endif
+
+#define DS_DEC 1
+#define DS_HEX 2
 
 /* UART Configuration Parameter. These are the configuration parameters to
  * make the eUSCI A UART module to operate with a 19200 baud rate. These
@@ -49,6 +51,7 @@ public:
     void begin( void );
     void print( uint_fast8_t );
     void print( const char * );
+    void print( uint_fast8_t, uint_fast8_t );
     void println( void );
     void println( uint_fast8_t );
     void println( const char * );

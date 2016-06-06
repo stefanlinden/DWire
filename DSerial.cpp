@@ -15,7 +15,12 @@
 
 #include "DSerial.h"
 
+/**** PROTOTYPES ****/
+void num2str( char * str, uint8_t len, uint8_t val, uint16_t denom );
+
+
 /**** GLOBAL VARIABLES ****/
+
 
 /**** CONSTRUCTORS ****/
 DSerial::DSerial( void ) {
@@ -60,6 +65,19 @@ void DSerial::print( const char * text ) {
     }
 }
 
+void DSerial::print( uint_fast8_t byte, uint_fast8_t type ) {
+    char str[3];
+    switch ( type ) {
+    case DS_DEC:
+        num2str(str, 3, byte, 10);
+        break;
+    case DS_HEX:
+        num2str(str, 3, byte, 16);
+        break;
+    }
+    print((const char *) str);
+}
+
 /**
  * Transmit a carriage return
  */
@@ -87,3 +105,15 @@ void DSerial::println( const char * text ) {
 }
 
 /**** PRIVATE METHODS ****/
+
+// This method is adapted from http://stackoverflow.com/a/10011878/6399671
+void num2str( char * str, uint8_t len, uint8_t val, uint16_t denom ) {
+    uint8_t i;
+
+    for ( i = 1; i <= len; i++ ) {
+        str[len - i] = (uint8_t) ((val % denom) + '0');
+        val /= denom;
+    }
+
+    str[i - 1] = '\0';
+}

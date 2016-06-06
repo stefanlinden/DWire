@@ -78,6 +78,8 @@ private:
     uint8_t * pRxBufferSize;
 
     volatile bool requestDone;
+    volatile bool sendStop;
+    volatile bool gotNAK;
 
     uint8_t slaveAddress;
 
@@ -109,8 +111,9 @@ public:
     void beginTransmission( uint_fast8_t );
     void write( uint8_t );
     void endTransmission( void );
+    void endTransmission( bool );
 
-    uint8_t * requestFrom( uint_fast8_t, uint_fast8_t );
+    uint8_t requestFrom( uint_fast8_t, uint_fast8_t );
 
     /* SLAVE specific */
     void begin( uint8_t );
@@ -127,6 +130,8 @@ public:
     void _handleReceive( uint8_t * );
     void _handleRequestSlave( void );
     void _finishRequest( void );
+    void _finishRequest( bool );
+    bool _isSendStop( bool );
 };
 
 

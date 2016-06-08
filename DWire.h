@@ -93,6 +93,7 @@ private:
     void (*user_onRequest)( void );
     void (*user_onReceive)( uint8_t );
 
+    void _initMain( void );
     void _initMaster( const eUSCI_I2C_MasterConfig * );
     void _initSlave( void );
     void _setSlaveAddress( uint_fast8_t );
@@ -102,11 +103,11 @@ public:
     uint_fast32_t module;
 
     /* Constructors */
-    DWire( uint32_t );
-    ~DWire( );
+    DWire( void );
+    ~DWire( void );
 
     /* MASTER specific */
-    void begin( void );
+    void begin( uint_fast32_t );
 
     void beginTransmission( uint_fast8_t );
     void write( uint8_t );
@@ -116,7 +117,7 @@ public:
     uint8_t requestFrom( uint_fast8_t, uint_fast8_t );
 
     /* SLAVE specific */
-    void begin( uint8_t );
+    void begin( uint_fast32_t, uint8_t );
 
     uint8_t read( void );
 

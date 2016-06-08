@@ -81,7 +81,7 @@ uint8_t EUSCIB3_rxBufferSize = 0;
 #endif
 
 // The default eUSCI settings
-eUSCI_I2C_MasterConfig i2cConfig = {
+const eUSCI_I2C_MasterConfig i2cConfig = {
 EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
 		MAP_CS_getSMCLK(),                 // Get the SMCLK clock frequency
 		EUSCI_B_I2C_SET_DATA_RATE_400KBPS, // Desired I2C Clock of 400khz // TODO make configurable
@@ -91,122 +91,7 @@ EUSCI_B_I2C_CLOCKSOURCE_SMCLK,                   // SMCLK Clock Source
 
 /**** CONSTRUCTORS ****/
 
-DWire::DWire(uint32_t module) {
-
-	this->module = module;
-
-	// The receiver buffer and related variables
-	rxReadIndex = 0;
-	rxReadLength = 0;
-
-	slaveAddress = 0;
-
-	busRole = 0;
-
-	requestDone = false;
-	sendStop = true;
-
-	switch (module) {
-#ifdef USING_EUSCI_B0
-	case EUSCI_B0_BASE:
-		pTxBuffer = EUSCIB0_txBuffer;
-		pTxBufferIndex = &EUSCIB0_txBufferIndex;
-		pTxBufferSize = &EUSCIB0_txBufferSize;
-
-		pRxBuffer = EUSCIB0_rxBuffer;
-		pRxBufferIndex = &EUSCIB0_rxBufferIndex;
-		pRxBufferSize = &EUSCIB0_rxBufferSize;
-
-		modulePort = EUSCI_B0_PORT;
-		modulePins = EUSCI_B0_PINS;
-
-		intModule = INT_EUSCIB0;
-		break;
-#endif
-#ifdef USING_EUSCI_B1
-	case EUSCI_B1_BASE:
-		pTxBuffer = EUSCIB1_txBuffer;
-		pTxBufferIndex = &EUSCIB1_txBufferIndex;
-		pTxBufferSize = &EUSCIB1_txBufferSize;
-
-		pRxBuffer = EUSCIB1_rxBuffer;
-		pRxBufferIndex = &EUSCIB1_rxBufferIndex;
-		pRxBufferSize = &EUSCIB1_rxBufferSize;
-
-		modulePort = EUSCI_B1_PORT;
-		modulePins = EUSCI_B1_PINS;
-
-		intModule = INT_EUSCIB1;
-		break;
-#endif
-#ifdef USING_EUSCI_B2
-	case EUSCI_B2_BASE:
-		pTxBuffer = EUSCIB2_txBuffer;
-		pTxBufferIndex = &EUSCIB2_txBufferIndex;
-		pTxBufferSize = &EUSCIB2_txBufferSize;
-
-		pRxBuffer = EUSCIB2_rxBuffer;
-		pRxBufferIndex = &EUSCIB2_rxBufferIndex;
-		pRxBufferSize = &EUSCIB2_rxBufferSize;
-
-		modulePort = EUSCI_B2_PORT;
-		modulePins = EUSCI_B2_PINS;
-
-		intModule = INT_EUSCIB2;
-		break;
-#endif
-#ifdef USING_EUSCI_B3
-	case EUSCI_B3_BASE:
-		pTxBuffer = EUSCIB3_txBuffer;
-		pTxBufferIndex = &EUSCIB3_txBufferIndex;
-		pTxBufferSize = &EUSCIB3_txBufferSize;
-
-		pRxBuffer = EUSCIB3_rxBuffer;
-		pRxBufferIndex = &EUSCIB3_rxBufferIndex;
-		pRxBufferSize = &EUSCIB3_rxBufferSize;
-
-		modulePort = EUSCI_B3_PORT
-		;
-		modulePins = EUSCI_B3_PINS;
-
-		intModule = INT_EUSCIB3;
-		break;
-#endif
-	default:
-		return;
-	}
-
-#ifdef ENERGIA
-	switch(module) {
-#ifdef USING_EUSCI_B0
-		case EUSCI_B0_BASE:
-		MAP_I2C_registerInterrupt(module, EUSCIB0_IRQHandler);
-		break;
-#endif
-
-#ifdef USING_EUSCI_B1
-		case EUSCI_B1_BASE:
-		MAP_I2C_registerInterrupt(module, EUSCIB1_IRQHandler);
-		break;
-#endif
-
-#ifdef USING_EUSCI_B2
-		case EUSCI_B2_BASE:
-		MAP_I2C_registerInterrupt(module, EUSCIB2_IRQHandler);
-		break;
-#endif
-
-#ifdef USING_EUSCI_B3
-		case EUSCI_B3_BASE:
-		MAP_I2C_registerInterrupt(module, EUSCIB3_IRQHandler);
-		break;
-#endif
-	}
-
-#endif
-
-	// Register this instance in the 'moduleMap'
-	registerModule(this);
+DWire::DWire( void ) {
 }
 
 DWire::~DWire() {
@@ -216,17 +101,26 @@ DWire::~DWire() {
 
 /**** PUBLIC METHODS ****/
 
-void DWire::begin(void) {
+void DWire::begin(uint_fast32_t module) {
+	this->module = module;
+
 	// Initialising the given module as a master
 	busRole = BUS_ROLE_MASTER;
+	slaveAddress = 0;
+	_initMain();
 
-	_initMaster((const eUSCI_I2C_MasterConfig *) &i2cConfig);
+	_initMaster(&i2cConfig);
 }
 
-void DWire::begin(uint8_t address) {
+void DWire::begin(uint_fast32_t module, uint8_t address) {
+	this->module = module;
+
 	// Initialising the given module as a slave
 	busRole = BUS_ROLE_SLAVE;
 	slaveAddress = address;
+
+	_initMain();
+
 	_initSlave();
 }
 
@@ -390,6 +284,100 @@ bool DWire::isMaster(void) {
 }
 
 /**** PRIVATE METHODS ****/
+
+/**
+ * The main initialisation method to setup pins and interrupts
+ */
+void DWire::_initMain( void ) {
+
+	// Initialise the receiver buffer and related variables
+	rxReadIndex = 0;
+	rxReadLength = 0;
+
+	requestDone = false;
+	sendStop = true;
+
+	switch (module) {
+#ifdef USING_EUSCI_B0
+	case EUSCI_B0_BASE:
+		pTxBuffer = EUSCIB0_txBuffer;
+		pTxBufferIndex = &EUSCIB0_txBufferIndex;
+		pTxBufferSize = &EUSCIB0_txBufferSize;
+
+		pRxBuffer = EUSCIB0_rxBuffer;
+		pRxBufferIndex = &EUSCIB0_rxBufferIndex;
+		pRxBufferSize = &EUSCIB0_rxBufferSize;
+
+		modulePort = EUSCI_B0_PORT;
+		modulePins = EUSCI_B0_PINS;
+
+		intModule = INT_EUSCIB0;
+
+		MAP_I2C_registerInterrupt(module, EUSCIB0_IRQHandler);
+		break;
+#endif
+#ifdef USING_EUSCI_B1
+	case EUSCI_B1_BASE:
+		pTxBuffer = EUSCIB1_txBuffer;
+		pTxBufferIndex = &EUSCIB1_txBufferIndex;
+		pTxBufferSize = &EUSCIB1_txBufferSize;
+
+		pRxBuffer = EUSCIB1_rxBuffer;
+		pRxBufferIndex = &EUSCIB1_rxBufferIndex;
+		pRxBufferSize = &EUSCIB1_rxBufferSize;
+
+		modulePort = EUSCI_B1_PORT;
+		modulePins = EUSCI_B1_PINS;
+
+		intModule = INT_EUSCIB1;
+
+		MAP_I2C_registerInterrupt(module, EUSCIB1_IRQHandler);
+		break;
+#endif
+#ifdef USING_EUSCI_B2
+	case EUSCI_B2_BASE:
+		pTxBuffer = EUSCIB2_txBuffer;
+		pTxBufferIndex = &EUSCIB2_txBufferIndex;
+		pTxBufferSize = &EUSCIB2_txBufferSize;
+
+		pRxBuffer = EUSCIB2_rxBuffer;
+		pRxBufferIndex = &EUSCIB2_rxBufferIndex;
+		pRxBufferSize = &EUSCIB2_rxBufferSize;
+
+		modulePort = EUSCI_B2_PORT;
+		modulePins = EUSCI_B2_PINS;
+
+		intModule = INT_EUSCIB2;
+
+		MAP_I2C_registerInterrupt(module, EUSCIB2_IRQHandler);
+		break;
+#endif
+#ifdef USING_EUSCI_B3
+	case EUSCI_B3_BASE:
+		pTxBuffer = EUSCIB3_txBuffer;
+		pTxBufferIndex = &EUSCIB3_txBufferIndex;
+		pTxBufferSize = &EUSCIB3_txBufferSize;
+
+		pRxBuffer = EUSCIB3_rxBuffer;
+		pRxBufferIndex = &EUSCIB3_rxBufferIndex;
+		pRxBufferSize = &EUSCIB3_rxBufferSize;
+
+		modulePort = EUSCI_B3_PORT;
+		modulePins = EUSCI_B3_PINS;
+
+		intModule = INT_EUSCIB3;
+
+		MAP_I2C_registerInterrupt(module, EUSCIB3_IRQHandler);
+		break;
+#endif
+	default:
+		return;
+	}
+
+	// Register this instance in the 'moduleMap'
+	registerModule(this);
+}
+
 
 /**
  * Called to set the eUSCI module in 'master' mode

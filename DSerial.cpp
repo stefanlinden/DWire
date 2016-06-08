@@ -11,12 +11,15 @@
  */
 
 /**** INCLUDES ****/
+
+extern "C" {
 #include<string.h>
+}
 
 #include "DSerial.h"
 
 /**** PROTOTYPES ****/
-void num2str( char * str, uint8_t len, uint8_t val, uint16_t denom );
+void itoa( char *, uint8_t, uint32_t, uint8_t );
 
 
 /**** GLOBAL VARIABLES ****/
@@ -65,17 +68,28 @@ void DSerial::print( const char * text ) {
     }
 }
 
-void DSerial::print( uint_fast8_t byte, uint_fast8_t type ) {
-    char str[3];
-    switch ( type ) {
-    case DS_DEC:
-        num2str(str, 3, byte, 10);
-        break;
-    case DS_HEX:
-        num2str(str, 3, byte, 16);
-        break;
+/**
+ * Formats a number according to the type specified
+ * Currently only integers are supported
+ */
+void DSerial::print( uint_fast32_t num, uint_fast8_t type ) {
+    if(type < 2 || type > 16)
+        return;
+
+    // Using a 10 char buffer, as an int does not have more characters than that
+    char str[10];
+
+    itoa(str, 10, num, type);
+
+    // Filter out all the leading zeroes
+    bool reachedStart = false;
+    for(int i = 0; i < 10; i++) {
+        if(str[i] != '0')
+            reachedStart = true;
+        if(reachedStart)
+            print(str[i]);
     }
-    print((const char *) str);
+
 }
 
 /**
@@ -106,14 +120,16 @@ void DSerial::println( const char * text ) {
 
 /**** PRIVATE METHODS ****/
 
+/**
+ * Convert a given integer into a corresponding string
+ */
 // This method is adapted from http://stackoverflow.com/a/10011878/6399671
-void num2str( char * str, uint8_t len, uint8_t val, uint16_t denom ) {
+void itoa( char * str, uint8_t len, uint32_t val, uint8_t base ) {
     uint8_t i;
 
     for ( i = 1; i <= len; i++ ) {
-        str[len - i] = (uint8_t) ((val % denom) + '0');
-        val /= denom;
+        str[len - i] = (uint8_t) ((val % base) + '0');
+        val /= base;
     }
-
     str[i - 1] = '\0';
 }

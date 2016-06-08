@@ -20,8 +20,13 @@
 #include "driverlib.h"
 #endif
 
-#define DS_DEC 1
-#define DS_HEX 2
+#ifndef DEC
+#define DEC 10
+#endif
+
+#ifndef HEX
+#define HEX 16
+#endif
 
 /* UART Configuration Parameter. These are the configuration parameters to
  * make the eUSCI A UART module to operate with a 19200 baud rate. These
@@ -29,7 +34,7 @@
  * at:
  * http://software-dl.ti.com/msp430/msp430_public_sw/mcu/msp430/MSP430BaudRateConverter/index.html
  */
-
+// TODO: make this configurable
 const eUSCI_UART_Config uartConfig =
 {
         EUSCI_A_UART_CLOCKSOURCE_SMCLK,          // SMCLK Clock Source

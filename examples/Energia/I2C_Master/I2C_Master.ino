@@ -17,21 +17,24 @@
  */
 
 #include "DWire.h"
+#include "DSerial.h"
+
+DSerial serial;
 
 DWire wire( EUSCI_B0_BASE );
 uint8_t i;
 
 void setup( ) {
-    // put your setup code here, to run once:
     wire.begin( );
+    serial.begin( );
 }
 
 void loop( ) {
-    // put your main code here, to run repeatedly:
+
     // Start a frame
     wire.beginTransmission(0x42);
 
-    // Write three bytes
+    // Write four bytes
     wire.write(i);
     wire.write(i + 1);
     wire.write(i + 2);
@@ -39,11 +42,15 @@ void loop( ) {
     i++;
 
     // Mark the frame as finished. This causes DWire to transmit the buffer's contents
-    wire.endTransmission( );
+    wire.endTransmission(true);
 
-    delay(200);
+    delay(400);
 
     // Do a request
-    wire.requestFrom(0x42, 4);
+    if(wire.requestFrom(0x42, 4) == 4) {
+      serial.println("Response: ");
+      for(short i = 0; i < 4; i++)
+        serial.print(wire.read(), DEC);
+    }
     delay(400);
 }

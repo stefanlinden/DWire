@@ -33,7 +33,7 @@ void setup()
   delay(100);
   serial.println("Ready as slave...");
 
-  // Start the module as a slave on address 0x48
+  // Start the module as a slave on address 0x42
   wire.begin(0x42);
   wire.onReceive(handleReceive);
   wire.onRequest(handleRequest);
@@ -77,6 +77,4 @@ void handleRequest( void ) {
   wire.write(buff[1]);
   wire.write(buff[2]);
   wire.write(buff[3]);
-
 }
-

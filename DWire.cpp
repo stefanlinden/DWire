@@ -424,6 +424,7 @@ void DWire::_initMaster(const eUSCI_I2C_MasterConfig * i2cConfig) {
 
 	// Register the interrupts on the correct module
 	MAP_Interrupt_enableInterrupt(intModule);
+	MAP_Interrupt_enableMaster();
 }
 
 void DWire::_initSlave(void) {
@@ -446,8 +447,8 @@ void DWire::_initSlave(void) {
 	MAP_I2C_enableInterrupt(module,
 			EUSCI_B_I2C_RECEIVE_INTERRUPT0 | EUSCI_B_I2C_STOP_INTERRUPT
 					| EUSCI_B_I2C_TRANSMIT_INTERRUPT0);
-	MAP_Interrupt_enableSleepOnIsrExit();
-	MAP_Interrupt_enableInterrupt(INT_EUSCIB0);
+	//MAP_Interrupt_enableSleepOnIsrExit();
+	MAP_Interrupt_enableInterrupt(intModule);
 	MAP_Interrupt_enableMaster();
 }
 
@@ -479,7 +480,6 @@ void DWire::_handleRequestSlave(void) {
 	if (*pTxBufferIndex > *pTxBufferSize) {
 		*pTxBufferIndex = 0;
 		*pTxBufferSize = 0;
-		//MAP_I2C_slavePutData(module, 0);
 	} else {
 		// Transmit a byte
 		MAP_I2C_slavePutData(module, pTxBuffer[*pTxBufferIndex]);

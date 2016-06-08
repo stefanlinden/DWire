@@ -76,6 +76,10 @@ void DSerial::print( uint_fast32_t num, uint_fast8_t type ) {
     if(type < 2 || type > 16)
         return;
 
+    if(num == 0) {
+    	print(0x30);
+    	return;
+    }
     // Using a 10 char buffer, as an int does not have more characters than that
     char str[10];
 

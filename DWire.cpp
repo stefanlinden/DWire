@@ -476,10 +476,10 @@ void DWire::_handleRequestSlave(void) {
 	}
 
 	// If we've transmitted the entire message, then reset the tx buffer
-	if (*pTxBufferIndex == *pTxBufferSize) {
+	if (*pTxBufferIndex > *pTxBufferSize) {
 		*pTxBufferIndex = 0;
 		*pTxBufferSize = 0;
-
+		//MAP_I2C_slavePutData(module, 0);
 	} else {
 		// Transmit a byte
 		MAP_I2C_slavePutData(module, pTxBuffer[*pTxBufferIndex]);
@@ -607,6 +607,7 @@ void IRQHandler(IRQParam param) {
 	if (status & EUSCI_B_I2C_NAK_INTERRUPT) {
 		//MAP_I2C_masterSendStart(param.module);
 		DWire * instance = getInstance(param.module);
+		//*param.txBufferIndex = 0;
 		if (instance)
 			if (*param.rxBufferSize > 0) {
 			}
@@ -673,8 +674,8 @@ void EUSCIB1_IRQHandler(void) {
 	// This is done here as triggering the interrupt takes too long
 	if ( MAP_I2C_getInterruptStatus(EUSCI_B1_BASE,
 	EUSCI_B_I2C_RECEIVE_INTERRUPT0)
-			&& (EUSCIB1_rxBufferIndex == EUSCIB1_rxBufferSize - 1)
-			&& EUSCIB1_rxBufferIndex != 0) {
+			&& (EUSCIB1_rxBufferIndex == EUSCIB1_rxBufferSize - 1) ) {
+			//&& EUSCIB1_rxBufferIndex != 0) {
 		MAP_I2C_masterReceiveMultiByteStop(EUSCI_B1_BASE);
 	}
 

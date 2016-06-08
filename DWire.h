@@ -40,7 +40,6 @@
 /* Device specific includes */
 #include "inc/dwire_pins.h"
 
-#ifdef ENERGIA
 extern "C" {
 #ifdef USING_EUSCI_B0
 extern void EUSCIB0_IRQHandler( void );
@@ -58,7 +57,7 @@ extern void EUSCIB2_IRQHandler( void );
 extern void EUSCIB3_IRQHandler( void );
 #endif
 }
-#endif
+
 
 /* Main class definition */
 class DWire {

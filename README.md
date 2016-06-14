@@ -11,6 +11,7 @@ Major features include:
 - Ability to use multiple eUSCI modules at the same time.
 - Full slave support: it is possible to run the microcontroller as a slave.
 - Nearly identical interface as Wire's interface.
+- Repeated starts are supported, both as Master and Slave.
 
 ## Installation
 
